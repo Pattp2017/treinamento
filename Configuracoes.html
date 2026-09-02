@@ -1,0 +1,100 @@
+<div class="card">
+  <h3>⚙️ Configurações do Sistema</h3>
+
+  <div class="form-grupo">
+    <label>Pasta Raiz dos Treinamentos</label>
+    <input
+      type="text"
+      id="txtPastaRaizTreinamentos"
+      class="campo"
+      placeholder="Cole aqui o link ou ID da pasta raiz do Google Drive">
+  </div>
+
+  <div style="margin-top: 10px; color:#6c757d; font-size: 14px;">
+    Exemplo de estrutura criada automaticamente:
+    <br>
+    <strong>Pasta Raiz &gt; Empresa &gt; 01) Lista de Presença / 02) Fotos / Treinamento</strong>
+  </div>
+
+  <br>
+
+  <div class="acoes">
+    <button class="btn btn-verde" onclick="salvarConfiguracoes()">💾 Salvar Configurações</button>
+    <button class="btn btn-claro" onclick="testarPastaRaiz()">🔎 Testar Pasta</button>
+  </div>
+</div>
+
+<script>
+function inicializarConfiguracoes() {
+  mostrarLoading();
+
+  google.script.run
+    .withSuccessHandler(function(retorno) {
+      esconderLoading();
+
+      if (retorno && retorno.sucesso) {
+        document.getElementById('txtPastaRaizTreinamentos').value =
+          retorno.pastaRaizTreinamentos || '';
+      }
+    })
+    .withFailureHandler(function(erro) {
+      esconderLoading();
+      mostrarMensagem('Erro ao carregar configurações: ' + erro.message, 'erro');
+    })
+    .obterConfiguracoesSistema();
+}
+
+function salvarConfiguracoes() {
+  const pastaRaiz = document.getElementById('txtPastaRaizTreinamentos').value.trim();
+
+  if (!pastaRaiz) {
+    mostrarMensagem('Informe a pasta raiz dos treinamentos.', 'alerta');
+    return;
+  }
+
+  mostrarLoading();
+
+  google.script.run
+    .withSuccessHandler(function(retorno) {
+      esconderLoading();
+
+      if (retorno && retorno.sucesso) {
+        document.getElementById('txtPastaRaizTreinamentos').value =
+          retorno.pastaRaizTreinamentos || '';
+
+        mostrarMensagem(retorno.mensagem || 'Configurações salvas.');
+      }
+    })
+    .withFailureHandler(function(erro) {
+      esconderLoading();
+      mostrarMensagem('Erro ao salvar configurações: ' + erro.message, 'erro');
+    })
+    .salvarConfiguracoesSistema({
+      pastaRaizTreinamentos: pastaRaiz
+    });
+}
+
+function testarPastaRaiz() {
+  mostrarLoading();
+
+  google.script.run
+    .withSuccessHandler(function(retorno) {
+      esconderLoading();
+
+      if (retorno && retorno.sucesso) {
+        mostrarMensagem('Pasta localizada: ' + retorno.nome);
+
+        if (retorno.url) {
+          window.open(retorno.url, '_blank');
+        }
+      }
+    })
+    .withFailureHandler(function(erro) {
+      esconderLoading();
+      mostrarMensagem('Erro ao testar pasta: ' + erro.message, 'erro');
+    })
+    .testarPastaRaizTreinamentos();
+}
+
+inicializarConfiguracoes();
+</script>

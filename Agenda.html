@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+</head>
+
+<body>
+
+<div class="card">
+  <div class="agenda-topo">
+    <h2>📅 Agenda de Treinamentos</h2>
+
+    <div class="agenda-controles">
+      <button class="btn-secundario" onclick="mudarMesAgenda(-1)">◀</button>
+      <strong id="agendaMesAno"></strong>
+      <button class="btn-secundario" onclick="mudarMesAgenda(1)">▶</button>
+    </div>
+  </div>
+
+<div class="grid-2">
+  <div class="form-grupo">
+    <label>Filtrar por Empresa</label>
+    <input
+      class="campo"
+      id="agendaFiltroEmpresa"
+      list="listaEmpresasAgenda"
+      placeholder="Digite parte da empresa"
+      oninput="desenharCalendarioAgenda()">
+  </div>
+
+  <div class="form-grupo">
+    <label>Filtrar por Instrutor</label>
+    <select
+      class="campo"
+      id="agendaFiltroInstrutor"
+      onchange="desenharCalendarioAgenda()">
+      <option value="">Todos</option>
+    </select>
+  </div>
+</div>
+
+  <div class="agenda-semana">
+    <div>Dom</div>
+    <div>Seg</div>
+    <div>Ter</div>
+    <div>Qua</div>
+    <div>Qui</div>
+    <div>Sex</div>
+    <div>Sáb</div>
+  </div>
+
+  <div id="gradeAgenda" class="agenda-grade"></div>
+</div>
+
+<div id="modalAgenda" class="modal-agenda oculto">
+  <div class="modal-agenda-conteudo">
+    <h3>Novo Agendamento</h3>
+
+    <input type="hidden" id="agendaDataInicial">
+
+    <p class="data-selecionada">
+      Data inicial: <strong id="agendaDataTexto"></strong>
+    </p>
+
+    <div class="form-grupo">
+      <label>Empresa</label>
+      <input class="campo" id="agendaEmpresa" list="listaEmpresasAgenda" placeholder="Digite parte da empresa">
+      <datalist id="listaEmpresasAgenda"></datalist>
+    </div>
+
+    <div class="form-grupo">
+      <label>Treinamento</label>
+      <select class="campo" id="agendaTreinamento">
+        <option value="">Selecione...</option>
+      </select>
+    </div>
+
+    <div class="form-grupo">
+      <label>Instrutor</label>
+      <select class="campo" id="agendaInstrutor">
+        <option value="">Selecione...</option>
+      </select>
+    </div>
+
+    <div class="form-grupo">
+      <label>Observação</label>
+      <textarea class="campo" id="agendaObservacao"></textarea>
+    </div>
+
+    <div class="modal-botoes">
+      <button class="btn-principal" onclick="salvarAgendamentoAgenda()">Agendar</button>
+      <button class="btn-secundario" onclick="fecharModalAgenda()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

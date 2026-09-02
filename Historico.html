@@ -1,0 +1,271 @@
+<div class="card">
+  <h2>📂 Histórico de Documentos</h2>
+
+  <div class="grid-3">
+    <div class="form-grupo">
+      <label>Empresa</label>
+      <input class="campo" id="histEmpresa" placeholder="Digite parte da empresa">
+    </div>
+
+    <div class="form-grupo">
+      <label>Treinamento</label>
+      <input class="campo" id="histTreinamento" placeholder="Digite parte do treinamento">
+    </div>
+
+    <div class="form-grupo">
+      <label>Tipo</label>
+      <select class="campo" id="histTipo">
+        <option value="">Todos</option>
+        <option value="Certificado">Certificado</option>
+        <option value="Lista de Presença">Lista de Presença</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="form-grupo">
+      <label>Turma</label>
+      <input class="campo" id="histTurma" placeholder="Ex: 202600001">
+    </div>
+
+    <div class="form-grupo">
+      <label>Participante</label>
+      <input class="campo" id="histParticipante" placeholder="Nome do participante">
+    </div>
+
+    <div class="form-grupo">
+      <label>CPF</label>
+      <input class="campo" id="histCpf" placeholder="Somente números ou com máscara" oninput="mascaraCPFHistorico(this)">
+    </div>
+  </div>
+
+  <div style="margin-top:15px;">
+    <button class="btn" onclick="pesquisarHistorico()">🔍 Pesquisar</button>
+    <button class="btn-secundario" onclick="limparHistorico()">🧹 Limpar</button>
+  </div>
+
+  <div id="msgHistorico" class="mensagem" style="display:none;"></div>
+
+  <div class="tabela-container" style="margin-top:20px;">
+    <table class="tabela">
+      <thead>
+        <tr>
+          <th>Turma</th>
+          <th>Data/Hora</th>
+          <th>Tipo</th>
+          <th>Empresa</th>
+          <th>Treinamento</th>
+          <th>Participante</th>
+          <th>CPF</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyHistorico">
+        <tr>
+          <td colspan="9" style="text-align:center;">Nenhum registro carregado.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function inicializarHistorico() {
+  prepararEventosHistorico();
+  pesquisarHistorico();
+}
+
+function prepararEventosHistorico() {
+  const campos = [
+    'histEmpresa',
+    'histTreinamento',
+    'histTurma',
+    'histParticipante',
+    'histCpf'
+  ];
+
+  campos.forEach(function(id) {
+    const campo = document.getElementById(id);
+    if (!campo) return;
+
+    campo.addEventListener('keydown', function(evento) {
+      if (evento.key === 'Enter') {
+        pesquisarHistorico();
+      }
+    });
+  });
+}
+
+function pesquisarHistorico() {
+  const filtros = {
+    empresa: document.getElementById('histEmpresa').value.trim(),
+    treinamento: document.getElementById('histTreinamento').value.trim(),
+    tipo: document.getElementById('histTipo').value,
+    idTurma: document.getElementById('histTurma').value.trim(),
+    participante: document.getElementById('histParticipante').value.trim(),
+    cpf: document.getElementById('histCpf').value.trim()
+  };
+
+  google.script.run
+    .withSuccessHandler(function(lista) {
+      renderizarHistorico(lista || []);
+    })
+    .withFailureHandler(function(erro) {
+      mostrarMensagem('Erro ao pesquisar histórico: ' + erro.message, 'erro');
+    })
+    .consultarHistorico(filtros);
+}
+
+function renderizarHistorico(lista) {
+  const tbody = document.getElementById('tbodyHistorico');
+  tbody.innerHTML = '';
+
+  if (!lista.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="10" style="text-align:center;">Nenhum registro encontrado.</td>
+      </tr>
+    `;
+    mostrarMensagemHistorico('Nenhum registro encontrado.', 'aviso');
+    return;
+  }
+
+  lista.forEach(function(item) {
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${escaparHtmlHistorico(item.idTurma)}</td>
+      <td>${escaparHtmlHistorico(formatarDataHoraHistorico(item.dataHora))}</td>
+      <td>${formatarTipoHistorico(item.tipo)}</td>
+      <td>${escaparHtmlHistorico(item.empresa)}</td>
+      <td>${escaparHtmlHistorico(item.treinamento)}</td>
+      <td>${escaparHtmlHistorico(item.participante)}</td>
+      <td>${escaparHtmlHistorico(item.cpf)}</td>
+      <td>${formatarStatusHistorico(item.status)}</td>
+      <td>${criarBotaoPastaHistorico(item.pasta)}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+
+  mostrarMensagemHistorico(lista.length + ' registro(s) encontrado(s).', 'sucesso');
+}
+
+function limparHistorico() {
+  setarValorHistorico('histEmpresa', '');
+  setarValorHistorico('histTreinamento', '');
+  setarValorHistorico('histTipo', '');
+  setarValorHistorico('histTurma', '');
+  setarValorHistorico('histParticipante', '');
+  setarValorHistorico('histCpf', '');
+
+  pesquisarHistorico();
+}
+
+function criarBotaoPastaHistorico(url) {
+  if (!url) return '';
+
+  const urlSeguro = escaparAtributoHistorico(url);
+
+  return `
+    <button class="btn-mini" onclick="window.open('${urlSeguro}', '_blank')">
+      📂 Pasta
+    </button>
+  `;
+}
+
+function formatarTipoHistorico(tipo) {
+  tipo = String(tipo || '');
+
+  if (tipo === 'Certificado') {
+    return '📜 Certificado';
+  }
+
+  if (tipo === 'Lista de Presença') {
+    return '📋 Lista';
+  }
+
+  return escaparHtmlHistorico(tipo);
+}
+
+function formatarStatusHistorico(status) {
+  status = String(status || '');
+
+  if (status === 'Gerado') {
+    return '🟢 Gerado';
+  }
+
+  if (status === 'Reemitido') {
+    return '🟡 Reemitido';
+  }
+
+  if (status === 'Cancelado') {
+    return '🔴 Cancelado';
+  }
+
+  return escaparHtmlHistorico(status);
+}
+
+function formatarDataHoraHistorico(valor) {
+  if (!valor) return '';
+
+  const data = new Date(valor);
+
+  if (isNaN(data.getTime())) {
+    return valor;
+  }
+
+  return data.toLocaleDateString('pt-BR') + ' ' +
+         data.toLocaleTimeString('pt-BR', {
+           hour: '2-digit',
+           minute: '2-digit'
+         });
+}
+
+function mascaraCPFHistorico(campo) {
+  let valor = campo.value.replace(/\D/g, '');
+
+  valor = valor.substring(0, 11);
+  valor = valor.replace(/(\d{3})(\d)/, '$1.$2');
+  valor = valor.replace(/(\d{3})(\d)/, '$1.$2');
+  valor = valor.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+
+  campo.value = valor;
+}
+
+function mostrarMensagemHistorico(texto, tipo) {
+  const msg = document.getElementById('msgHistorico');
+  if (!msg) return;
+
+  msg.style.display = 'block';
+  msg.className = 'mensagem ' + (tipo || '');
+  msg.textContent = texto;
+}
+
+function setarValorHistorico(id, valor) {
+  const campo = document.getElementById(id);
+  if (campo) campo.value = valor;
+}
+
+function escaparHtmlHistorico(valor) {
+  if (valor === null || valor === undefined) return '';
+
+  return String(valor)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escaparAtributoHistorico(valor) {
+  if (valor === null || valor === undefined) return '';
+
+  return String(valor)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;')
+    .replace(/\n/g, '');
+}
+</script>

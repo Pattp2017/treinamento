@@ -1,0 +1,780 @@
+<div class="cabecalho-modulo">
+  <div>
+    <h2>Inspeções de Segurança</h2>
+    <p>
+      Cadastre, acompanhe e conclua inspeções de segurança do trabalho.
+    </p>
+  </div>
+
+  <button
+    type="button"
+    class="btn-primario"
+    onclick="abrirNovaInspecao()"
+  >
+    + Nova inspeção
+  </button>
+</div>
+
+
+<!-- FORMULÁRIO DE NOVA INSPEÇÃO -->
+<div id="formNovaInspecao" class="card oculto">
+
+  <div class="titulo-card-inspecao">
+    <h3>Nova inspeção</h3>
+
+    <button
+      type="button"
+      class="btn-fechar-inspecao"
+      onclick="cancelarNovaInspecao()"
+      title="Fechar"
+    >
+      ×
+    </button>
+  </div>
+
+  <div class="form-grid">
+
+    <div class="campo">
+      <label for="inspecaoEmpresa">
+        Empresa <span class="obrigatorio">*</span>
+      </label>
+
+      <input
+        type="text"
+        id="inspecaoEmpresa"
+        list="listaEmpresasInspecao"
+        autocomplete="off"
+        placeholder="Pesquise e selecione a empresa"
+      >
+
+      <datalist id="listaEmpresasInspecao"></datalist>
+    </div>
+
+
+    <div class="campo">
+      <label for="inspecaoTipo">
+        Tipo de inspeção <span class="obrigatorio">*</span>
+      </label>
+
+      <select id="inspecaoTipo">
+        <option value="Armazém">Armazém</option>
+      </select>
+    </div>
+
+
+    <div class="campo">
+      <label for="inspecaoSetor">Setor ou local</label>
+
+      <input
+        type="text"
+        id="inspecaoSetor"
+        placeholder="Ex.: Armazém principal"
+      >
+    </div>
+
+
+    <div class="campo">
+      <label for="inspecaoData">
+        Data da inspeção <span class="obrigatorio">*</span>
+      </label>
+
+      <input
+        type="date"
+        id="inspecaoData"
+      >
+    </div>
+
+
+    <div class="campo">
+      <label for="inspecaoResponsavel">
+        Responsável pela inspeção <span class="obrigatorio">*</span>
+      </label>
+
+      <input
+        type="text"
+        id="inspecaoResponsavel"
+        placeholder="Nome do responsável"
+      >
+    </div>
+
+
+    <div class="campo">
+      <label for="inspecaoResponsavelSetor">
+        Responsável pelo setor
+      </label>
+
+      <input
+        type="text"
+        id="inspecaoResponsavelSetor"
+        placeholder="Nome do responsável pelo local"
+      >
+    </div>
+
+  </div>
+
+
+  <div class="acoes-formulario">
+
+    <button
+      type="button"
+      class="btn-secundario"
+      onclick="cancelarNovaInspecao()"
+    >
+      Cancelar
+    </button>
+
+    <button
+      type="button"
+      class="btn-primario"
+      id="btnIniciarInspecao"
+      onclick="iniciarInspecao()"
+    >
+      Iniciar checklist
+    </button>
+
+  </div>
+
+</div>
+
+
+<!-- LISTAGEM DAS INSPEÇÕES -->
+<div class="card">
+
+  <div class="titulo-listagem-inspecoes">
+    <div>
+      <h3>Inspeções cadastradas</h3>
+      <p>Acompanhe as inspeções realizadas e em andamento.</p>
+    </div>
+
+    <button
+      type="button"
+      class="btn-secundario"
+      onclick="carregarInspecoes()"
+    >
+      Atualizar
+    </button>
+  </div>
+
+
+  <div class="tabela-responsiva">
+
+    <table class="tabela-padrao">
+
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Data</th>
+          <th>Empresa</th>
+          <th>Tipo</th>
+          <th>Conformidade</th>
+          <th>Classificação</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+
+      <tbody id="listaInspecoes">
+        <tr>
+          <td colspan="8" class="texto-centralizado">
+            Nenhuma inspeção carregada.
+          </td>
+        </tr>
+      </tbody>
+
+    </table>
+
+  </div>
+
+</div>
+
+
+<style>
+
+.cabecalho-modulo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.cabecalho-modulo h2 {
+  margin: 0 0 6px 0;
+}
+
+.cabecalho-modulo p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.titulo-card-inspecao,
+.titulo-listagem-inspecoes {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.titulo-card-inspecao h3,
+.titulo-listagem-inspecoes h3 {
+  margin: 0;
+}
+
+.titulo-listagem-inspecoes p {
+  margin: 5px 0 0;
+  color: #6b7280;
+}
+
+.btn-fechar-inspecao {
+  border: none;
+  background: transparent;
+  font-size: 28px;
+  cursor: pointer;
+  color: #6b7280;
+}
+
+.btn-fechar-inspecao:hover {
+  color: #dc3545;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.campo label {
+  font-weight: 600;
+}
+
+.campo input,
+.campo select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.obrigatorio {
+  color: #dc3545;
+}
+
+.acoes-formulario {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.tabela-responsiva {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.texto-centralizado {
+  text-align: center;
+}
+
+.oculto {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+
+  .cabecalho-modulo {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .acoes-formulario {
+    flex-direction: column-reverse;
+  }
+
+  .acoes-formulario button {
+    width: 100%;
+  }
+
+}
+
+</style>
+
+
+<script>
+
+let empresasInspecao = [];
+
+
+function inicializarInspecoes() {
+  carregarEmpresasInspecao();
+  carregarInspecoes();
+}
+
+
+function abrirNovaInspecao() {
+  const formulario = document.getElementById('formNovaInspecao');
+
+  if (!formulario) {
+    mostrarMensagem(
+      'Formulário de inspeção não encontrado.',
+      'erro'
+    );
+    return;
+  }
+
+  formulario.classList.remove('oculto');
+
+  const campoData = document.getElementById('inspecaoData');
+
+  if (campoData && !campoData.value) {
+    campoData.value = obterDataAtualInspecao();
+  }
+
+  formulario.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start'
+  });
+}
+
+
+function cancelarNovaInspecao() {
+  limparFormularioInspecao();
+
+  const formulario = document.getElementById('formNovaInspecao');
+
+  if (formulario) {
+    formulario.classList.add('oculto');
+  }
+}
+
+
+function obterDataAtualInspecao() {
+  const hoje = new Date();
+
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+  const dia = String(hoje.getDate()).padStart(2, '0');
+
+  return `${ano}-${mes}-${dia}`;
+}
+
+
+function limparFormularioInspecao() {
+  const campos = [
+    'inspecaoEmpresa',
+    'inspecaoSetor',
+    'inspecaoData',
+    'inspecaoResponsavel',
+    'inspecaoResponsavelSetor'
+  ];
+
+  campos.forEach(function(idCampo) {
+    const campo = document.getElementById(idCampo);
+
+    if (campo) {
+      campo.value = '';
+    }
+  });
+
+  const tipo = document.getElementById('inspecaoTipo');
+
+  if (tipo) {
+    tipo.value = 'Armazém';
+  }
+}
+
+
+function carregarEmpresasInspecao() {
+  const lista = document.getElementById('listaEmpresasInspecao');
+
+  if (!lista) {
+    return;
+  }
+
+  lista.innerHTML = '';
+
+  google.script.run
+    .withSuccessHandler(function(empresas) {
+
+      empresasInspecao = normalizarEmpresasInspecao(empresas);
+
+      lista.innerHTML = '';
+
+      empresasInspecao.forEach(function(empresa) {
+        const option = document.createElement('option');
+
+        option.value = empresa.nome;
+
+        lista.appendChild(option);
+      });
+
+      if (empresasInspecao.length === 0) {
+        mostrarMensagem(
+          'Nenhuma empresa foi encontrada no banco.',
+          'alerta'
+        );
+      }
+
+    })
+    .withFailureHandler(function(erro) {
+      mostrarMensagem(
+        'Erro ao carregar empresas: ' +
+        obterMensagemErroInspecao(erro),
+        'erro'
+      );
+    })
+    .listarEmpresasBanco();
+}
+
+
+function normalizarEmpresasInspecao(empresas) {
+  if (!Array.isArray(empresas)) {
+    return [];
+  }
+
+  return empresas
+    .map(function(empresa) {
+      return {
+        id: empresa.id || null,
+        nome: String(empresa.nome || '').trim()
+      };
+    })
+    .filter(function(empresa) {
+      return empresa.nome;
+    });
+}
+
+
+function encontrarEmpresaSelecionada(nomeEmpresa) {
+  const nomeNormalizado = String(nomeEmpresa)
+    .trim()
+    .toLowerCase();
+
+  return empresasInspecao.find(function(empresa) {
+    return empresa.nome.toLowerCase() === nomeNormalizado;
+  });
+}
+
+
+function iniciarInspecao() {
+  const botao = document.getElementById('btnIniciarInspecao');
+
+  const dados = {
+    empresa: obterValorCampoInspecao('inspecaoEmpresa'),
+    tipoInspecao: obterValorCampoInspecao('inspecaoTipo'),
+    setor: obterValorCampoInspecao('inspecaoSetor'),
+    dataInspecao: obterValorCampoInspecao('inspecaoData'),
+    responsavelInspecao:
+      obterValorCampoInspecao('inspecaoResponsavel'),
+    responsavelSetor:
+      obterValorCampoInspecao('inspecaoResponsavelSetor')
+  };
+
+  if (!dados.empresa) {
+    mostrarMensagem('Informe a empresa.', 'alerta');
+    return;
+  }
+
+  const empresaSelecionada =
+    encontrarEmpresaSelecionada(dados.empresa);
+
+  if (!empresaSelecionada) {
+    mostrarMensagem(
+      'Selecione uma empresa cadastrada no banco.',
+      'alerta'
+    );
+    return;
+  }
+
+  if (!dados.tipoInspecao) {
+    mostrarMensagem(
+      'Informe o tipo de inspeção.',
+      'alerta'
+    );
+    return;
+  }
+
+  if (!dados.dataInspecao) {
+    mostrarMensagem(
+      'Informe a data da inspeção.',
+      'alerta'
+    );
+    return;
+  }
+
+  if (!dados.responsavelInspecao) {
+    mostrarMensagem(
+      'Informe o responsável pela inspeção.',
+      'alerta'
+    );
+    return;
+  }
+
+  dados.empresaId = empresaSelecionada.id;
+  dados.empresa = empresaSelecionada.nome;
+
+  alterarEstadoBotaoInspecao(
+    botao,
+    true,
+    'Salvando...'
+  );
+
+  mostrarLoading();
+
+  google.script.run
+    .withSuccessHandler(function(resposta) {
+
+      esconderLoading();
+
+      alterarEstadoBotaoInspecao(
+        botao,
+        false,
+        'Iniciar checklist'
+      );
+
+      mostrarMensagem(
+        'Inspeção iniciada com sucesso.',
+        'sucesso'
+      );
+
+      cancelarNovaInspecao();
+      carregarInspecoes();
+
+      console.log(
+        'Inspeção cadastrada:',
+        resposta
+      );
+
+    })
+    .withFailureHandler(function(erro) {
+
+      esconderLoading();
+
+      alterarEstadoBotaoInspecao(
+        botao,
+        false,
+        'Iniciar checklist'
+      );
+
+      mostrarMensagem(
+        'Erro ao iniciar inspeção: ' +
+        obterMensagemErroInspecao(erro),
+        'erro'
+      );
+
+    })
+    .salvarInspecao(dados);
+}
+
+
+function carregarInspecoes() {
+  const corpoTabela =
+    document.getElementById('listaInspecoes');
+
+  if (!corpoTabela) {
+    return;
+  }
+
+  corpoTabela.innerHTML = `
+    <tr>
+      <td colspan="8" class="texto-centralizado">
+        Carregando inspeções...
+      </td>
+    </tr>
+  `;
+
+  google.script.run
+    .withSuccessHandler(function(inspecoes) {
+
+      renderizarInspecoes(inspecoes);
+
+    })
+    .withFailureHandler(function(erro) {
+
+      corpoTabela.innerHTML = `
+        <tr>
+          <td colspan="8" class="texto-centralizado">
+            Erro ao carregar inspeções.
+          </td>
+        </tr>
+      `;
+
+      mostrarMensagem(
+        'Erro ao carregar inspeções: ' +
+        obterMensagemErroInspecao(erro),
+        'erro'
+      );
+
+    })
+    .listarInspecoes();
+}
+
+
+function renderizarInspecoes(inspecoes) {
+  const corpoTabela =
+    document.getElementById('listaInspecoes');
+
+  if (!corpoTabela) {
+    return;
+  }
+
+  if (!Array.isArray(inspecoes) || inspecoes.length === 0) {
+    corpoTabela.innerHTML = `
+      <tr>
+        <td colspan="8" class="texto-centralizado">
+          Nenhuma inspeção cadastrada.
+        </td>
+      </tr>
+    `;
+
+    return;
+  }
+
+  corpoTabela.innerHTML = '';
+
+  inspecoes.forEach(function(inspecao) {
+    const linha = document.createElement('tr');
+
+    const idInspecao =
+      inspecao.id_inspecao ||
+      inspecao.idInspecao ||
+      inspecao.id ||
+      '';
+
+    const data =
+      formatarDataInspecao(
+        inspecao.data_inspecao ||
+        inspecao.dataInspecao
+      );
+
+    const empresa =
+      inspecao.empresa || '';
+
+    const tipo =
+      inspecao.tipo_inspecao ||
+      inspecao.tipoInspecao ||
+      '';
+
+    const percentual =
+      inspecao.percentual_conformidade ??
+      inspecao.percentualConformidade ??
+      0;
+
+    const classificacao =
+      inspecao.classificacao || '-';
+
+    const status =
+      inspecao.status || 'Em andamento';
+
+    linha.innerHTML = `
+      <td>${escaparHtml(idInspecao)}</td>
+
+      <td>${escaparHtml(data)}</td>
+
+      <td>${escaparHtml(empresa)}</td>
+
+      <td>${escaparHtml(tipo)}</td>
+
+      <td>${escaparHtml(percentual)}%</td>
+
+      <td>${escaparHtml(classificacao)}</td>
+
+      <td>${escaparHtml(status)}</td>
+
+      <td>
+        <button
+          type="button"
+          class="btn-editar"
+          onclick="abrirChecklistInspecao('${escaparAtributoInspecao(idInspecao)}')"
+          title="Abrir inspeção"
+        >
+          📋
+        </button>
+      </td>
+    `;
+
+    corpoTabela.appendChild(linha);
+  });
+}
+
+
+function abrirChecklistInspecao(idInspecao) {
+  mostrarMensagem(
+    'Checklist da inspeção ' +
+    idInspecao +
+    ' será aberto na próxima etapa.',
+    'alerta'
+  );
+}
+
+
+function obterValorCampoInspecao(idCampo) {
+  const campo = document.getElementById(idCampo);
+
+  if (!campo) {
+    return '';
+  }
+
+  return String(campo.value || '').trim();
+}
+
+
+function alterarEstadoBotaoInspecao(
+  botao,
+  desabilitado,
+  texto
+) {
+  if (!botao) {
+    return;
+  }
+
+  botao.disabled = desabilitado;
+  botao.innerText = texto;
+}
+
+
+function formatarDataInspecao(data) {
+  if (!data) {
+    return '';
+  }
+
+  const texto = String(data).substring(0, 10);
+  const partes = texto.split('-');
+
+  if (partes.length !== 3) {
+    return texto;
+  }
+
+  return `${partes[2]}/${partes[1]}/${partes[0]}`;
+}
+
+
+function escaparAtributoInspecao(valor) {
+  return String(valor || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;');
+}
+
+
+function obterMensagemErroInspecao(erro) {
+  if (!erro) {
+    return 'Erro desconhecido.';
+  }
+
+  if (erro.message) {
+    return erro.message;
+  }
+
+  return String(erro);
+}
+
+</script>

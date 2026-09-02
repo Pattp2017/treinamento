@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+
+  <body>
+    <div class="app">
+
+      <aside class="sidebar">
+        <div class="logo">RG Certe SST</div>
+        <div class="logo-sub">Certificações e Agronegócio</div>
+
+        <div class="menu-item ativo" onclick="abrirModulo('Dashboard', this)">🏠 Dashboard</div>
+        <div class="menu-item" onclick="abrirModulo('Agenda', this)">📅 Agenda</div>
+        <div class="menu-item" onclick="abrirModulo('Turmas', this)">👥 Turmas</div>
+        <div class="menu-item" onclick="abrirModulo('Historico', this)">📂 Histórico</div>
+        <div class="menu-item" onclick="abrirModulo('ESocial', this)">📤 eSocial</div>
+        <div class="menu-item" onclick="abrirModulo('Configuracoes', this)">⚙️ Configurações</div>
+        <div class="menu-item" onclick="abrirModulo('Inspecoes', this)"> <span class="menu-icone">🔎</span> <span>Inspeções</span>
+</div>
+        <div class="sidebar-footer">
+          Sistema SST<br>
+          Versão 1.0.0
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div id="tituloPagina" class="titulo-pagina">Dashboard</div>
+          <div class="usuario">Patricia Pereira</div>
+        </header>
+
+        <section id="conteudoPrincipal" class="conteudo">
+          <div class="card">
+            <h2>Bem-vinda ao RG Certe SST</h2>
+            <p>Sistema iniciado com sucesso.</p>
+          </div>
+
+          <div class="grid-3">
+            <div class="card">
+              <h3>📅 Agenda</h3>
+              <p>Agenda de treinamentos.</p>
+            </div>
+
+            <div class="card">
+              <h3>👥 Turmas</h3>
+              <p>Cadastro e controle de participantes.</p>
+            </div>
+
+            <div class="card">
+              <h3>📂 Histórico</h3>
+              <p>Consulta de documentos gerados.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <div id="loading" class="loading">Carregando...</div>
+  </body>
+</html>

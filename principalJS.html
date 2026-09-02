@@ -1,0 +1,482 @@
+<script>shboard
+function mostrarLoading() {
+  document.getElementById('loading').style.display = 'flex';
+}
+
+function esconderLoading() {
+  document.getElementById('loading').style.display = 'none';
+}
+
+function mostrarMensagem(texto, tipo = 'sucesso') {
+  const toast = document.getElementById('toast');
+
+  toast.innerText = texto;
+
+  if (tipo === 'erro') {
+    toast.style.background = '#dc3545';
+    toast.style.color = '#ffffff';
+  } else if (tipo === 'alerta') {
+    toast.style.background = '#ffc107';
+    toast.style.color = '#2d3436';
+  } else {
+    toast.style.background = '#0b8f43';
+    toast.style.color = '#ffffff';
+  }
+
+  toast.style.display = 'block';
+
+  setTimeout(function() {
+    toast.style.display = 'none';
+  }, 3500);
+}
+
+function executarScriptsDoModulo(container) {
+  const scripts = container.querySelectorAll('script');
+
+  scripts.forEach(function(scriptAntigo) {
+    const novoScript = document.createElement('script');
+
+    if (scriptAntigo.src) {
+      novoScript.src = scriptAntigo.src;
+    } else {
+      novoScript.textContent = scriptAntigo.textContent;
+    }
+
+    document.body.appendChild(novoScript);
+    scriptAntigo.remove();
+  });
+}
+
+function abrirModulo(nome, elemento) {
+  const titulo = document.getElementById('tituloPagina');
+  const conteudo = document.getElementById('conteudoPrincipal');
+
+  document.querySelectorAll('.menu-item').forEach(function(item) {
+    item.classList.remove('ativo');
+  });
+
+  if (elemento) {
+    elemento.classList.add('ativo');
+  }
+
+  titulo.innerText = nome;
+
+  if (nome === 'Dashboard') {
+    conteudo.innerHTML = `
+      <div class="card">
+        <h2>Dashboard</h2>
+        <p>Visão geral do Sistema SST.</p>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <h3>👥 Turmas</h3>
+          <p>Em desenvolvimento</p>
+        </div>
+
+        <div class="card">
+          <h3>📚 Histórico</h3>
+          <p>Em desenvolvimento</p>
+        </div>
+
+        <div class="card">
+          <h3>📅 Agenda</h3>
+          <p>Em desenvolvimento</p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  mostrarLoading();
+
+  google.script.run
+    .withSuccessHandler(function(html) {
+      conteudo.innerHTML = html;
+
+      executarScriptsDoModulo(conteudo);
+
+      setTimeout(function() {
+        esconderLoading();
+
+        if (nome === 'Agenda' && typeof inicializarAgenda === 'function') {
+          inicializarAgenda();
+        }
+
+        if (nome === 'Turmas' && typeof inicializarTurmas === 'function') {
+          inicializarTurmas();
+        }
+
+        if (nome === 'ESocial' && typeof inicializarESocial === 'function') {
+          inicializarESocial();
+        }
+        if (nome === 'Inspecoes' && typeof inicializarESocial === 'function') {
+          inicializarESocial();
+        }
+
+        if (nome === 'Historico' && typeof inicializarHistorico === 'function') {
+          inicializarHistorico();
+        }
+
+      }, 100);
+    })
+    .withFailureHandler(function(erro) {
+      esconderLoading();
+      mostrarMensagem('Erro ao abrir módulo: ' + erro.message, 'erro');
+    })
+    .obterTela(nome);
+}
+
+//==================================================
+// ESOCIAL
+//==================================================
+
+let idEmEdicaoESocial = null;
+
+function inicializarESocial() {
+  idEmEdicaoESocial = null;
+  carregarEmpresasESocial();
+}
+
+function carregarEmpresasESocial() {
+  google.script.run
+    .withSuccessHandler(function(empresas) {
+      const lista = document.getElementById('listaEmpresas');
+
+      if (!lista) return;
+
+      lista.innerHTML = '';
+
+      empresas.forEach(function(emp) {
+        const option = document.createElement('option');
+
+        option.value = emp;
+
+        lista.appendChild(option);
+      });
+    })
+    .withFailureHandler(function(erro) {
+      mostrarMensagem(
+        'Erro ao carregar empresas: ' + erro.message,
+        'erro'
+      );
+    })
+    .obterEmpresas();
+}
+
+function mascaraCPF(campo) {
+  let valor = campo.value.replace(/\D/g, '');
+
+  valor = valor.substring(0, 11);
+  valor = valor.replace(/(\d{3})(\d)/, '$1.$2');
+  valor = valor.replace(/(\d{3})(\d)/, '$1.$2');
+  valor = valor.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+
+  campo.value = valor;
+}
+
+function salvar() {
+  const dados = {
+    empresa: document.getElementById('empresa').value.trim(),
+    tipoAso: document.getElementById('tipoAso').value,
+    dataAso: document.getElementById('dataAso').value,
+    nome: document.getElementById('nome').value.trim(),
+    cpf: document.getElementById('cpf').value.trim(),
+    observacao: document.getElementById('observacao').value.trim()
+  };
+
+  if (!dados.empresa || !dados.tipoAso || !dados.dataAso || !dados.nome || !dados.cpf) {
+    mostrarMensagem('Preencha os campos obrigatórios.', 'alerta');
+    return;
+  }
+
+  const cpfNumeros = dados.cpf.replace(/\D/g, '');
+
+  if (cpfNumeros.length !== 11) {
+    mostrarMensagem('CPF deve conter 11 números.', 'alerta');
+    return;
+  }
+
+  mostrarLoading();
+
+  if (idEmEdicaoESocial) {
+    dados.id = idEmEdicaoESocial;
+
+    google.script.run
+      .withSuccessHandler(function(resposta) {
+        esconderLoading();
+        mostrarMensagem(resposta, 'sucesso');
+
+        limparFormularioESocial();
+        idEmEdicaoESocial = null;
+        alterarTextoBotaoSalvarESocial('Salvar Lançamento');
+        consultar();
+      })
+      .withFailureHandler(function(erro) {
+        esconderLoading();
+        mostrarMensagem('Erro: ' + erro.message, 'erro');
+      })
+      .atualizarLancamento(dados);
+
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(function(resposta) {
+      esconderLoading();
+      mostrarMensagem(resposta, 'sucesso');
+
+      limparFormularioESocial();
+      consultar();
+    })
+    .withFailureHandler(function(erro) {
+      esconderLoading();
+      mostrarMensagem('Erro: ' + erro.message, 'erro');
+    })
+    .salvarLancamento(dados);
+}
+
+function limparFormularioESocial() {
+  document.getElementById('empresa').value = '';
+  document.getElementById('tipoAso').value = '';
+  document.getElementById('dataAso').value = '';
+  document.getElementById('nome').value = '';
+  document.getElementById('cpf').value = '';
+  document.getElementById('observacao').value = '';
+}
+
+function consultar() {
+  const termo = document.getElementById('pesquisa').value.trim();
+  const registroInicio = document.getElementById('registroInicio').value;
+  const registroFim = document.getElementById('registroFim').value;
+  const resultado = document.getElementById('resultado');
+
+  if (!termo && !registroInicio && !registroFim) {
+    resultado.innerHTML = '<p>Digite algo para pesquisar ou informe a data de registro.</p>';
+    return;
+  }
+
+  mostrarLoading();
+
+  google.script.run
+    .withSuccessHandler(function(lista) {
+      esconderLoading();
+
+      if (!lista || lista.length === 0) {
+        resultado.innerHTML = '<p>Nenhum lançamento encontrado.</p>';
+        return;
+      }
+
+      let html = '';
+      html += '<table>';
+      html += '<tr>';
+      html += '<th>Empresa</th>';
+      html += '<th>Tipo ASO</th>';
+      html += '<th>Data ASO</th>';
+      html += '<th>Nome</th>';
+      html += '<th>CPF</th>';
+      html += '<th>Registro</th>';
+      html += '<th>Editar</th>';
+      html += '</tr>';
+
+      lista.forEach(function(item) {
+        html += '<tr>';
+        html += '<td>' + escaparHtml(item.empresa) + '</td>';
+        html += '<td>' + escaparHtml(item.tipoAso) + '</td>';
+        html += '<td>' + escaparHtml(item.dataAso) + '</td>';
+        html += '<td>' + escaparHtml(item.nome) + '</td>';
+        html += '<td>' + escaparHtml(item.cpf) + '</td>';
+        html += '<td>' + escaparHtml(item.dataRegistro) + '</td>';
+        html += '<td><button type="button" class="btn-editar" onclick="editarLancamento(' + item.id + ')">✏️</button></td>';
+        html += '</tr>';
+      });
+
+      html += '</table>';
+      resultado.innerHTML = html;
+    })
+    .withFailureHandler(function(erro) {
+      esconderLoading();
+      resultado.innerHTML = '<p style="color:red;">Erro: ' + erro.message + '</p>';
+    })
+    .consultarLancamentos(termo, registroInicio, registroFim);
+}
+
+function editarLancamento(id) {
+  mostrarLoading();
+
+  google.script.run
+    .withSuccessHandler(function(item) {
+      esconderLoading();
+
+      idEmEdicaoESocial = item.id;
+
+      document.getElementById('empresa').value = item.empresa;
+      document.getElementById('tipoAso').value = item.tipoAso;
+      document.getElementById('dataAso').value = item.dataAsoInput;
+      document.getElementById('nome').value = item.nome;
+      document.getElementById('cpf').value = item.cpf;
+      document.getElementById('observacao').value = item.observacao || '';
+
+      alterarTextoBotaoSalvarESocial('Atualizar Lançamento');
+      mostrarMensagem('Registro carregado para edição.', 'alerta');
+    })
+    .withFailureHandler(function(erro) {
+      esconderLoading();
+      mostrarMensagem('Erro ao carregar registro: ' + erro.message, 'erro');
+    })
+    .buscarLancamentoPorId(id);
+}
+
+function alterarTextoBotaoSalvarESocial(texto) {
+  const botao = document.querySelector('button[onclick="salvar()"]');
+  if (botao) botao.innerText = texto;
+}
+
+function escaparHtml(valor) {
+  if (valor === null || valor === undefined) return '';
+
+  return String(valor)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function obterIdTurmaSelecionada() {
+  const campo = document.getElementById('idTurmaSelecionada');
+
+  if (campo && campo.value) {
+    return campo.value;
+  }
+
+  if (window.idTurmaSelecionada) {
+    return window.idTurmaSelecionada;
+  }
+
+  mostrarMensagem('Selecione uma turma primeiro.', 'alerta');
+  return null;
+}
+
+function gerarListaPresencaTela() {
+  const idTurma = obterIdTurmaSelecionada();
+  if (!idTurma) return;
+
+  mostrarLoading();
+
+  google.script.run
+    .withSuccessHandler(function(resposta) {
+      esconderLoading();
+      mostrarMensagem('Lista de presença gerada com sucesso!', 'sucesso');
+
+      if (resposta && resposta.urlDocumento) {
+        window.open(resposta.urlDocumento, '_blank');
+      } else if (resposta && resposta.url) {
+        window.open(resposta.url, '_blank');
+      }
+    })
+    .withFailureHandler(function(erro) {
+      esconderLoading();
+      mostrarMensagem('Erro ao gerar lista: ' + erro.message, 'erro');
+    })
+    .gerarListaPresencaPorIdTurma(idTurma);
+}
+
+function gerarCertificadosTela() {
+  const idTurma = obterIdTurmaSelecionada();
+  if (!idTurma) return;
+
+  mostrarLoading();
+
+  google.script.run
+    .withSuccessHandler(function(resposta) {
+      esconderLoading();
+      mostrarMensagem('Certificados gerados com sucesso!', 'sucesso');
+
+      if (resposta && resposta.urlPasta) {
+        window.open(resposta.urlPasta, '_blank');
+      } else if (resposta && resposta.pastaUrl) {
+        window.open(resposta.pastaUrl, '_blank');
+      }
+    })
+    .withFailureHandler(function(erro) {
+      esconderLoading();
+      mostrarMensagem('Erro ao gerar certificados: ' + erro.message, 'erro');
+    })
+    .gerarCertificadosPorIdTurma(idTurma);
+}
+
+function carregarProximaAgendaTurma() {
+  const botao = document.getElementById('btnProximaAgenda');
+
+  if (botao) {
+    botao.disabled = true;
+    botao.innerHTML = '⏳ Carregando agenda...';
+  }
+
+  google.script.run
+    .withSuccessHandler(function(agendamento) {
+      restaurarBotaoProximaAgenda_();
+
+      if (!agendamento) {
+        mostrarMensagem(
+          'Não existem agendamentos pendentes para cadastrar como turma.',
+          'alerta'
+        );
+
+        return;
+      }
+
+      // Utiliza o mesmo mecanismo já usado quando clicamos
+      // no ícone "Turma" dentro da Agenda.
+      sessionStorage.setItem(
+        'agendaParaTurma',
+        JSON.stringify(agendamento)
+      );
+
+      const itemTurmas = document.querySelector(
+        '.menu-item[onclick*="Turmas"]'
+      );
+
+      abrirModulo('Turmas', itemTurmas);
+    })
+    .withFailureHandler(function(erro) {
+      restaurarBotaoProximaAgenda_();
+
+      mostrarMensagem(
+        erro && erro.message
+          ? erro.message
+          : 'Não foi possível carregar a próxima agenda.',
+        'erro'
+      );
+    })
+    .buscarProximoAgendamentoParaTurma();
+}
+function editarTurmaAtual() {
+  if (!turmaAtual || !turmaAtual.idTurma) {
+    mostrarMensagem(
+      'Nenhuma turma cadastrada está aberta para edição.',
+      'alerta'
+    );
+    return;
+  }
+
+  mostrarMensagem(
+    'Turma ' + turmaAtual.idTurma + ' selecionada para edição.',
+    'alerta'
+  );
+}
+
+
+function restaurarBotaoProximaAgenda_() {
+  const botao = document.getElementById('btnProximaAgenda');
+
+  if (!botao) {
+    return;
+  }
+
+  botao.disabled = false;
+  botao.innerHTML = '⏭ Carregar próxima agenda';
+}
+
+</script>

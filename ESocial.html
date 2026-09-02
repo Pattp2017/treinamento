@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+</head>
+
+<body>
+
+<div class="card">
+  <h2>📤 Controle de Envios ao eSocial</h2>
+
+  <input type="hidden" id="idLancamento">
+
+  <div class="grid-2">
+    <div class="form-grupo">
+      <label>Empresa/Fazenda</label>
+      <input class="campo" list="listaEmpresas" id="empresa" placeholder="Digite parte do nome">
+      <datalist id="listaEmpresas"></datalist>
+    </div>
+
+    <div class="form-grupo">
+      <label>Tipo de ASO</label>
+      <select class="campo" id="tipoAso">
+        <option value="">Selecione</option>
+        <option>Admissional</option>
+        <option>Periódico</option>
+        <option>Mudança de Função</option>
+        <option>Retorno ao Trabalho</option>
+        <option>Demissional</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="form-grupo">
+      <label>Data do ASO</label>
+      <input class="campo" type="date" id="dataAso">
+    </div>
+
+    <div class="form-grupo">
+      <label>Nome</label>
+      <input class="campo" type="text" id="nome">
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="form-grupo">
+      <label>CPF</label>
+      <input class="campo" type="text" id="cpf" placeholder="000.000.000-00" maxlength="14" oninput="mascaraCPF(this)">
+    </div>
+
+    <div class="form-grupo">
+      <label>Observação</label>
+      <textarea class="campo" id="observacao" rows="2"></textarea>
+    </div>
+  </div>
+
+  <div class="acoes">
+    <button class="btn btn-verde" id="btnSalvar" onclick="salvarLancamento()">💾 Salvar Lançamento</button>
+    <button class="btn btn-claro" id="btnCancelar" onclick="cancelarEdicao()" style="display:none;">❌ Cancelar Edição</button>
+  </div>
+
+  <div id="mensagem"></div>
+</div>
+
+<div class="card">
+  <h2>🔎 Consultar Lançamentos</h2>
+
+  <div class="grid-3">
+    <div class="form-grupo">
+      <label>Pesquisar por Nome, CPF ou Empresa</label>
+      <input class="campo" type="text" id="pesquisa" placeholder="Digite nome, CPF ou empresa">
+    </div>
+
+    <div class="form-grupo">
+      <label>Registro Inicial</label>
+      <input class="campo" type="date" id="registroInicio">
+    </div>
+
+    <div class="form-grupo">
+      <label>Registro Final</label>
+      <input class="campo" type="date" id="registroFim">
+    </div>
+  </div>
+
+  <div class="acoes">
+    <button class="btn btn-claro" onclick="consultarLancamentos()">🔍 Consultar</button>
+  </div>
+
+  <div id="resultado"></div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  carregarEmpresas();
+  consultarLancamentos();
+});
+
+function carregarEmpresas() {
+  google.script.run
+    .withSuccessHandler(function(empresas) {
+      const lista = document.getElementById('listaEmpresas');
+      lista.innerHTML = '';
+
+      empresas.forEach(function(empresa) {
+        const option = document.createElement('option');
+        option.value = empresa;
+        lista.appendChild(option);
+      });
+    })
+    .withFailureHandler(function(erro) {
+      mostrarMensagem('Erro ao carregar empresas: ' + erro.message, 'erro');
+    })
+    .obterEmpresas();
+}
+
+function salvarLancamento() {
+  const id = document.getElementById('idLancamento').value;
+
+  const dados = {
+    id: id,
+    empresa: document.getElementById('empresa').value.trim(),
+    tipoAso: document.getElementById('tipoAso').value.trim(),
+    dataAso: document.getElementById('dataAso').value,
+    nome: document.getElementById('nome').value.trim(),
+    cpf: document.getElementById('cpf').value.trim(),
+    observacao: document.getElementById('observacao').value.trim()
+  };
+
+  if (!dados.empresa) {
+    mostrarMensagem('Informe a empresa/fazenda.', 'erro');
+    return;
+  }
+
+  if (!dados.tipoAso) {
+    mostrarMensagem('Informe o tipo de ASO.', 'erro');
+    return;
+  }
+
+  if (!dados.dataAso) {
+    mostrarMensagem('Informe a data do ASO.', 'erro');
+    return;
+  }
+
+  if (!dados.nome) {
+    mostrarMensagem('Informe o nome.', 'erro');
+    return;
+  }
+
+  if (!dados.cpf) {
+    mostrarMensagem('Informe o CPF.', 'erro');
+    return;
+  }
+
+  mostrarMensagem(id ? 'Atualizando lançamento...' : 'Salvando lançamento...', 'info');
+
+  if (id) {
+    google.script.run
+      .withSuccessHandler(function(retorno) {
+        mostrarMensagem(retorno, 'sucesso');
+        limparFormularioESocial();
+        consultarLancamentos();
+      })
+      .withFailureHandler(function(erro) {
+        mostrarMensagem('Erro ao atualizar: ' + erro.message, 'erro');
+      })
+      .atualizarLancamentoServidor(dados);
+  } else {
+    google.script.run
+      .withSuccessHandler(function(retorno) {
+        mostrarMensagem(retorno, 'sucesso');
+        limparFormularioESocial();
+        consultarLancamentos();
+      })
+      .withFailureHandler(function(erro) {
+        mostrarMensagem('Erro ao salvar: ' + erro.message, 'erro');
+      })
+      .salvarLancamentoServidor(dados);
+  }
+}
+
+function consultarLancamentos() {
+  const termo = document.getElementById('pesquisa').value;
+  const registroInicio = document.getElementById('registroInicio').value;
+  const registroFim = document.getElementById('registroFim').value;
+
+  document.getElementById('resultado').innerHTML = 'Consultando...';
+
+  google.script.run
+    .withSuccessHandler(montarTabelaLancamentos)
+    .withFailureHandler(function(erro) {
+      document.getElementById('resultado').innerHTML =
+        '<p style="color:red;">Erro: ' + erro.message + '</p>';
+    })
+    .consultarLancamentos(termo, registroInicio, registroFim);
+}
+
+function montarTabelaLancamentos(dados) {
+  const resultado = document.getElementById('resultado');
+
+  if (!dados || dados.length === 0) {
+    resultado.innerHTML = '<p>Nenhum lançamento encontrado.</p>';
+    return;
+  }
+
+  let html = '<table class="tabela">';
+  html += '<thead><tr>';
+  html += '<th>Registro</th>';
+  html += '<th>Empresa</th>';
+  html += '<th>Tipo ASO</th>';
+  html += '<th>Data ASO</th>';
+  html += '<th>Nome</th>';
+  html += '<th>CPF</th>';
+  html += '<th>Observação</th>';
+  html += '<th>Ação</th>';
+  html += '</tr></thead><tbody>';
+
+  dados.forEach(function(item) {
+    html += '<tr>';
+    html += '<td>' + escaparHtml(item.dataRegistro || '') + '</td>';
+    html += '<td>' + escaparHtml(item.empresa || '') + '</td>';
+    html += '<td>' + escaparHtml(item.tipoAso || '') + '</td>';
+    html += '<td>' + escaparHtml(item.dataAso || '') + '</td>';
+    html += '<td>' + escaparHtml(item.nome || '') + '</td>';
+    html += '<td>' + escaparHtml(item.cpf || '') + '</td>';
+    html += '<td>' + escaparHtml(item.observacao || '') + '</td>';
+    html += '<td><button class="btn btn-claro" onclick="editarLancamento(' + item.id + ')">✏️ Editar</button></td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+
+  resultado.innerHTML = html;
+}
+
+function editarLancamento(id) {
+  mostrarMensagem('Carregando lançamento para edição...', 'info');
+
+  google.script.run
+    .withSuccessHandler(function(dados) {
+      document.getElementById('idLancamento').value = dados.id || '';
+      document.getElementById('empresa').value = dados.empresa || '';
+      document.getElementById('tipoAso').value = dados.tipoAso || '';
+      document.getElementById('dataAso').value = dados.dataAso || '';
+      document.getElementById('nome').value = dados.nome || '';
+      document.getElementById('cpf').value = dados.cpf || '';
+      document.getElementById('observacao').value = dados.observacao || '';
+
+      document.getElementById('btnSalvar').innerHTML = '✅ Atualizar Lançamento';
+      document.getElementById('btnCancelar').style.display = 'inline-block';
+
+      mostrarMensagem('Registro carregado para edição.', 'info');
+
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    })
+    .withFailureHandler(function(erro) {
+      mostrarMensagem('Erro ao carregar lançamento: ' + erro.message, 'erro');
+    })
+    .buscarLancamentoPorIdServidor(id);
+}
+
+function cancelarEdicao() {
+  limparFormularioESocial();
+  mostrarMensagem('Edição cancelada.', 'info');
+}
+
+function limparFormularioESocial() {
+  document.getElementById('idLancamento').value = '';
+  document.getElementById('empresa').value = '';
+  document.getElementById('tipoAso').value = '';
+  document.getElementById('dataAso').value = '';
+  document.getElementById('nome').value = '';
+  document.getElementById('cpf').value = '';
+  document.getElementById('observacao').value = '';
+
+  document.getElementById('btnSalvar').innerHTML = '💾 Salvar Lançamento';
+  document.getElementById('btnCancelar').style.display = 'none';
+}
+
+function mostrarMensagem(texto, tipo) {
+  const div = document.getElementById('mensagem');
+
+  let cor = '#555';
+
+  if (tipo === 'sucesso') cor = 'green';
+  if (tipo === 'erro') cor = 'red';
+  if (tipo === 'info') cor = '#555';
+
+  div.innerHTML = '<p style="color:' + cor + ';">' + escaparHtml(texto) + '</p>';
+}
+
+function mascaraCPF(campo) {
+  let valor = campo.value.replace(/\D/g, '');
+
+  valor = valor.replace(/(\d{3})(\d)/, '$1.$2');
+  valor = valor.replace(/(\d{3})(\d)/, '$1.$2');
+  valor = valor.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+
+  campo.value = valor;
+}
+
+function escaparHtml(texto) {
+  return String(texto)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+</script>
+
+</body>
+</html>

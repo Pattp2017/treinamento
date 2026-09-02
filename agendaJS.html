@@ -1,0 +1,547 @@
+<script>
+let agendaDataAtual = new Date();
+let agendaDadosBase = {};
+let agendaEventos = [];
+
+function inicializarAgenda() {
+  carregarDadosAgenda();
+}
+
+function carregarDadosAgenda() {
+  google.script.run
+    .withSuccessHandler(function(dados) {
+      agendaDadosBase = dados;
+      preencherCamposAgenda(dados);
+      carregarEventosAgenda();
+    })
+    .withFailureHandler(function(erro) {
+      alert('Erro ao carregar dados da agenda: ' + erro.message);
+    })
+    .carregarDadosBaseAgenda();
+}
+
+function carregarEventosAgenda() {
+  google.script.run
+    .withSuccessHandler(function(eventos) {
+      agendaEventos = eventos || [];
+      desenharCalendarioAgenda();
+    })
+    .withFailureHandler(function(erro) {
+      mostrarMensagem('Erro ao carregar eventos: ' + erro.message, 'erro');
+    })
+    .listarEventosAgendaV2();
+}
+
+function preencherCamposAgenda(dados) {
+  const listaEmpresas = document.getElementById('listaEmpresasAgenda');
+  const treinamento = document.getElementById('agendaTreinamento');
+  const instrutor = document.getElementById('agendaInstrutor');
+  const filtroInstrutor = document.getElementById('agendaFiltroInstrutor');
+
+  listaEmpresas.innerHTML = '';
+  treinamento.innerHTML = '<option value="">Selecione...</option>';
+  instrutor.innerHTML = '<option value="">Selecione...</option>';
+  filtroInstrutor.innerHTML = '<option value="">Todos</option>';
+
+  dados.empresas.forEach(function(empresa) {
+    const opt = document.createElement('option');
+    opt.value = empresa;
+    listaEmpresas.appendChild(opt);
+  });
+
+  dados.treinamentos.forEach(function(item) {
+    const opt = document.createElement('option');
+    opt.value = item.nome;
+    opt.textContent = item.nome;
+    opt.dataset.carga = item.carga;
+    treinamento.appendChild(opt);
+  });
+
+  dados.instrutores.forEach(function(nome) {
+
+    // Select do modal de cadastro
+    const opt = document.createElement('option');
+    opt.value = nome;
+    opt.textContent = nome;
+    instrutor.appendChild(opt);
+
+    // Select do filtro da agenda
+    const optFiltro = document.createElement('option');
+    optFiltro.value = nome;
+    optFiltro.textContent = nome;
+    filtroInstrutor.appendChild(optFiltro);
+
+  });
+}
+
+function desenharCalendarioAgenda() {
+  const grade = document.getElementById('gradeAgenda');
+  const titulo = document.getElementById('agendaMesAno');
+
+  const empresaFiltro = String(document.getElementById('agendaFiltroEmpresa')?.value || '')
+    .toLowerCase()
+    .trim();
+
+  const instrutorFiltro = String(document.getElementById('agendaFiltroInstrutor')?.value || '')
+    .toLowerCase()
+    .trim();
+
+  grade.innerHTML = '';
+
+  const ano = agendaDataAtual.getFullYear();
+  const mes = agendaDataAtual.getMonth();
+
+  const nomesMeses = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
+  titulo.textContent = nomesMeses[mes] + ' / ' + ano;
+
+  const primeiroDia = new Date(ano, mes, 1);
+  const ultimoDia = new Date(ano, mes + 1, 0);
+  const inicioSemana = primeiroDia.getDay();
+
+  for (let i = 0; i < inicioSemana; i++) {
+    const vazio = document.createElement('div');
+    vazio.className = 'agenda-dia vazio';
+    grade.appendChild(vazio);
+  }
+
+  for (let dia = 1; dia <= ultimoDia.getDate(); dia++) {
+    const data = new Date(ano, mes, dia);
+    const dataISO = formatarDataISOAgenda(data);
+    const diaSemana = data.getDay();
+
+    const celula = document.createElement('div');
+    celula.className = 'agenda-dia';
+
+    if (diaSemana === 0 || diaSemana === 6) {
+      celula.classList.add('fim-semana');
+    }
+
+    celula.onclick = function() {
+      abrirModalAgenda(dataISO);
+    };
+
+    celula.innerHTML = `<div class="agenda-numero">${dia}</div>`;
+
+    const eventosDoDia = agendaEventos.filter(function(ev) {
+      const inicio = normalizarDataEventoAgenda(ev.dataInicialISO);
+      const fim = normalizarDataEventoAgenda(ev.dataFinalISO);
+
+      if (diaSemana === 0 || diaSemana === 6) {
+        return false;
+      }
+
+      if (!(inicio && fim && dataISO >= inicio && dataISO <= fim)) {
+        return false;
+      }
+
+      const empresaEvento = String(ev.empresa || '').toLowerCase().trim();
+      const instrutorEvento = String(ev.instrutor || '').toLowerCase().trim();
+
+      if (empresaFiltro && !empresaEvento.includes(empresaFiltro)) {
+        return false;
+      }
+
+      if (instrutorFiltro && instrutorEvento !== instrutorFiltro) {
+        return false;
+      }
+
+      return true;
+    });
+
+    eventosDoDia.forEach(function(ev) {
+      celula.appendChild(criarCardAgenda(ev));
+    });
+
+    grade.appendChild(celula);
+  }
+}
+
+function criarCardAgenda(ev) {
+  const card = document.createElement('div');
+
+  card.className =
+    'agenda-card ' + obterClasseInstrutorAgenda(ev.instrutor);
+
+  card.onclick = function(event) {
+    event.stopPropagation();
+  };
+
+  const cabecalho = document.createElement('div');
+  cabecalho.className = 'agenda-card-cabecalho';
+
+  const empresa = document.createElement('strong');
+  empresa.textContent = '🏢 ' + (ev.empresa || '');
+
+  const botaoMenu = document.createElement('button');
+  botaoMenu.type = 'button';
+  botaoMenu.className = 'agenda-botao-menu';
+  botaoMenu.title = 'Mais opções';
+  botaoMenu.textContent = '⋮';
+
+  const menu = document.createElement('div');
+  menu.className = 'agenda-menu-acoes oculto';
+
+  const botaoExcluir = document.createElement('button');
+  botaoExcluir.type = 'button';
+  botaoExcluir.textContent = '🗑️ Excluir agendamento';
+
+  botaoMenu.addEventListener('click', function(event) {
+    event.stopPropagation();
+
+    document
+      .querySelectorAll('.agenda-menu-acoes')
+      .forEach(function(outroMenu) {
+        if (outroMenu !== menu) {
+          outroMenu.classList.add('oculto');
+        }
+      });
+
+    menu.classList.toggle('oculto');
+  });
+
+  botaoExcluir.addEventListener('click', function(event) {
+    event.stopPropagation();
+    excluirAgendamentoAgenda(event, ev.id);
+  });
+
+  menu.appendChild(botaoExcluir);
+
+  cabecalho.appendChild(empresa);
+  cabecalho.appendChild(botaoMenu);
+  cabecalho.appendChild(menu);
+
+  const treinamento = document.createElement('span');
+  treinamento.textContent = '📚 ' + (ev.treinamento || '');
+
+  const instrutor = document.createElement('span');
+  instrutor.textContent = '👤 ' + (ev.instrutor || '');
+
+  const etapas = document.createElement('div');
+  etapas.innerHTML = montarEtapasAgenda(ev.etapa, ev);
+
+  card.appendChild(cabecalho);
+  card.appendChild(treinamento);
+  card.appendChild(instrutor);
+
+  while (etapas.firstChild) {
+    card.appendChild(etapas.firstChild);
+  }
+
+  return card;
+}
+
+function excluirAgendamentoAgenda(event, idAgenda) {
+  event.stopPropagation();
+
+  const agendamento = agendaEventos.find(function(item) {
+    return String(item.id) === String(idAgenda);
+  });
+
+  if (!agendamento) {
+    mostrarMensagem('Agendamento não encontrado.', 'erro');
+    return;
+  }
+
+  let mensagem =
+    'Deseja excluir este agendamento?\n\n' +
+    'Empresa: ' + agendamento.empresa + '\n' +
+    'Treinamento: ' + agendamento.treinamento + '\n' +
+    'Instrutor: ' + agendamento.instrutor;
+
+  if (agendamento.idTurma) {
+    mensagem +=
+      '\n\nA turma vinculada também será removida da planilha principal.';
+  }
+
+  mensagem += '\n\nEsta ação não poderá ser desfeita.';
+
+  if (!confirm(mensagem)) {
+    return;
+  }
+
+  mostrarLoading();
+
+  google.script.run
+    .withSuccessHandler(function(retorno) {
+      esconderLoading();
+
+      mostrarMensagem(
+        retorno.mensagem || 'Agendamento excluído com sucesso.',
+        'sucesso'
+      );
+
+      carregarEventosAgenda();
+    })
+    .withFailureHandler(function(erro) {
+      esconderLoading();
+
+      mostrarMensagem(
+        'Erro ao excluir agendamento: ' + erro.message,
+        'erro'
+      );
+    })
+    .excluirAgendamentoAgendaServidor(idAgenda);
+}
+
+
+function obterClasseInstrutorAgenda(instrutor) {
+
+  instrutor = String(instrutor || '').toLowerCase();
+
+  if (instrutor.includes('raphael')) {
+    return 'agenda-raphael';
+  }
+
+  if (instrutor.includes('patricia')) {
+    return 'agenda-patricia';
+  }
+
+  if (instrutor.includes('ester')) {
+    return 'agenda-ester';
+  }
+
+  if (instrutor.includes('raissa')) {
+    return 'agenda-raissa';
+  }
+
+  if (instrutor.includes('bruno')) {
+    return 'agenda-bruno';
+  }
+
+  return 'agenda-padrao';
+}
+
+function montarEtapasAgenda(etapa, ev) {
+  etapa = Number(etapa || 1);
+
+  if (etapa < 1) etapa = 1;
+  if (etapa > 4) etapa = 4;
+
+  const percentual = etapa * 25;
+
+  let html = `
+    <div class="agenda-etapas">
+      <div class="agenda-progresso-fundo">
+        <div class="agenda-progresso-preenchido" style="width:${percentual}%;"></div>
+      </div>
+  `;
+
+  const etapas = [
+    { numero: 1, icone: '📅', titulo: 'Agendado', acao: 'agenda' },
+    { numero: 2, icone: '👥', titulo: 'Cadastrar turma', acao: 'turma' },
+    { numero: 3, icone: '📋', titulo: 'Lista de presença', acao: 'lista' },
+    { numero: 4, icone: '🎓', titulo: 'Certificados', acao: 'certificados' }
+  ];
+
+  etapas.forEach(function(item) {
+    const ativa = item.numero <= etapa ? 'ativa' : '';
+
+    html += `
+      <div class="agenda-etapa ${ativa}"
+           title="${item.titulo}"
+           onclick="executarAcaoEtapaAgenda(event, '${item.acao}', '${ev.id}')">
+        ${item.icone}
+      </div>
+    `;
+  });
+
+  html += '</div>';
+  return html;
+}
+
+function mudarMesAgenda(direcao) {
+  agendaDataAtual.setMonth(agendaDataAtual.getMonth() + direcao);
+  desenharCalendarioAgenda();
+}
+
+function abrirModalAgenda(dataISO) {
+  limparModalAgenda();
+
+  document.getElementById('agendaDataInicial').value = dataISO;
+  document.getElementById('agendaDataTexto').textContent = formatarDataBRISOAgenda(dataISO);
+
+  document.getElementById('modalAgenda').classList.remove('oculto');
+}
+
+function fecharModalAgenda() {
+  document.getElementById('modalAgenda').classList.add('oculto');
+}
+
+function limparModalAgenda() {
+  document.getElementById('agendaEmpresa').value = '';
+  document.getElementById('agendaTreinamento').value = '';
+  document.getElementById('agendaInstrutor').value = '';
+  document.getElementById('agendaObservacao').value = '';
+}
+
+
+function adicionarDiasUteisAgenda(dataISO, diasAdicionar) {
+  let data = criarDataLocalAgenda(dataISO);
+  let adicionados = 0;
+
+  while (adicionados < diasAdicionar) {
+    data.setDate(data.getDate() + 1);
+
+    const diaSemana = data.getDay();
+    if (diaSemana !== 0 && diaSemana !== 6) {
+      adicionados++;
+    }
+  }
+
+  return formatarDataISOAgenda(data);
+}
+
+function salvarAgendamentoAgenda() {
+  const select = document.getElementById('agendaTreinamento');
+  const opt = select.options[select.selectedIndex];
+
+  const dados = {
+    dataInicial: document.getElementById('agendaDataInicial').value,
+    empresa: document.getElementById('agendaEmpresa').value.trim(),
+    treinamento: select.value,
+    carga: opt ? opt.dataset.carga || '' : '',
+    instrutor: document.getElementById('agendaInstrutor').value,
+    observacao: document.getElementById('agendaObservacao').value.trim()
+  };
+
+  if (!dados.empresa || !dados.treinamento || !dados.instrutor) {
+    mostrarMensagem('Preencha empresa, treinamento e instrutor.', 'alerta');
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(function() {
+      fecharModalAgenda();
+      carregarEventosAgenda();
+      mostrarMensagem();
+    })
+    .withFailureHandler(function(erro) {
+      mostrarMensagem('Erro ao salvar agendamento: ' + erro.message, 'erro');
+    })
+    .salvarAgendamentoAgendaServidor(dados);
+}
+
+function criarDataLocalAgenda(dataISO) {
+  const partes = dataISO.split('-');
+  return new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+}
+
+function formatarDataISOAgenda(data) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+}
+
+function formatarDataBRISOAgenda(dataISO) {
+  const partes = dataISO.split('-');
+  return `${partes[2]}/${partes[1]}/${partes[0]}`;
+}
+
+function normalizarDataEventoAgenda(valor) {
+  if (!valor) return '';
+
+  valor = String(valor).trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+    return valor;
+  }
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(valor)) {
+    const partes = valor.split('/');
+    return partes[2] + '-' + partes[1] + '-' + partes[0];
+  }
+
+  const data = new Date(valor);
+
+  if (!isNaN(data.getTime())) {
+    return formatarDataISOAgenda(data);
+  }
+
+  return '';
+}
+
+function executarAcaoEtapaAgenda(event, acao, idAgenda) {
+  event.stopPropagation();
+
+  const agendamento = agendaEventos.find(function(ev) {
+    return String(ev.id) === String(idAgenda);
+  });
+
+  if (!agendamento) {
+    mostrarMensagem('Agendamento não encontrado.', 'erro');
+    return;
+  }
+
+  if (acao === 'turma') {
+    sessionStorage.setItem('agendaParaTurma', JSON.stringify(agendamento));
+
+    const itemTurmas = document.querySelector('.menu-item[onclick*="Turmas"]');
+
+    abrirModulo('Turmas', itemTurmas);
+    return;
+  }
+
+  if (acao === 'lista') {
+
+    if (!agendamento.idTurma) {
+      mostrarMensagem('Primeiro a turma precisa estar cadastrada.', 'alerta');
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(function(retorno) {
+        mostrarMensagem(retorno.mensagem || 'Lista de presença gerada com sucesso!', 'sucesso');
+
+        if (retorno.url) {
+          window.open(retorno.url, '_blank');
+        }
+
+        carregarEventosAgenda();
+      })
+      .withFailureHandler(function(erro) {
+        mostrarMensagem('Erro ao gerar lista: ' + erro.message, 'erro');
+      })
+      .ListaPresencaPorIdTurma(agendamento.idTurma);
+
+    return;
+  }
+
+  if (acao === 'certificados') {
+    mostrarMensagem('Os certificados serão liberados após a lista.', 'alerta');
+    return;
+  }
+}
+
+
+function preencherTurmaAPartirDaAgenda() {
+  const texto = sessionStorage.getItem('agendaParaTurma');
+
+  if (!texto) return;
+
+  const agendamento = JSON.parse(texto);
+  sessionStorage.removeItem('agendaParaTurma');
+
+  document.getElementById('empresa').value = agendamento.empresa || '';
+  document.getElementById('cboTreinamento').value = agendamento.treinamento || '';
+  document.getElementById('cboInstrutor').value = agendamento.instrutor || '';
+  document.getElementById('txtCarga').value = agendamento.carga || '';
+  document.getElementById('txtInicial').value = converterISOParaBRAgendaTurma(agendamento.dataInicialISO);
+  document.getElementById('txtFinal').value = converterISOParaBRAgendaTurma(agendamento.dataFinalISO);
+
+  mostrarMensagem('Cabeçalho preenchido pela Agenda. Agora inclua os alunos.', 'alerta');
+}
+
+function converterISOParaBRAgendaTurma(dataISO) {
+  if (!dataISO) return '';
+
+  const partes = dataISO.split('-');
+  return partes[2] + '/' + partes[1] + '/' + partes[0];
+}
+
+
+</script>

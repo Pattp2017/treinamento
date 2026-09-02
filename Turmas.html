@@ -1,0 +1,914 @@
+<div class="grid-2">
+
+  <div class="card">
+    <h3>📚 Dados do Treinamento</h3>
+
+
+<div class="grid-empresa-turma">
+
+  <div class="form-grupo empresa">
+    <label>Empresa</label>
+    <input
+      list="listaEmpresas"
+      type="text"
+      id="txtEmpresa"
+      class="campo"
+      placeholder="Digite ou selecione a empresa...">
+
+    <datalist id="listaEmpresas"></datalist>
+  </div>
+
+  <div class="form-grupo turma">
+    <label>Turma</label>
+    <input
+      type="text"
+      id="txtIdTurma"
+      class="campo"
+      value="Aguardando..."
+      readonly>
+  </div>
+</div>
+
+<input type="hidden" id="idTurmaSelecionada">
+<input type="hidden" id="idAgendaSelecionada">
+
+    <div class="grid-2">
+      <div class="form-grupo">
+        <label>Treinamento</label>
+        <select id="cboTreinamento" class="campo"></select>
+      </div>
+
+      <div class="form-grupo">
+        <label>Carga Horária</label>
+        <input type="text" id="txtCarga" class="campo" readonly placeholder="00 horas">
+      </div>
+    </div>
+
+    <div class="grid-2">
+    <div class="form-grupo">
+      <label>Data Inicial</label>
+          <input
+            type="date"
+            id="pickerDataInicial"
+            class="campo"
+            onchange="selecionarDataInicial()">
+      </div>
+
+      <div class="form-grupo">
+        <label>Data Final</label>
+        <input type="text" id="txtDataFinal" class="campo" readonly placeholder="dd/mm/aaaa">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>👨‍🏫 Dados do Instrutor</h3>
+
+    <div class="form-grupo">
+      <label>Instrutor</label>
+      <select id="cboInstrutor" class="campo"></select>
+    </div>
+
+    <div class="form-grupo">
+      <label>Habilitação</label>
+      <input type="text" id="txtHabilitacao" class="campo" readonly>
+    </div>
+
+    <div class="form-grupo">
+      <label>Registro Profissional</label>
+      <input type="text" id="txtRegistro" class="campo" readonly>
+    </div>
+
+    <div id="statusTurma" style="margin-top:14px; font-weight:bold; color:#6c757d;">
+      Turma ainda não salva
+    </div>
+  </div>
+
+</div>
+
+<div class="card">
+  <h3 id="tituloParticipantes">👥 Participantes (0)</h3>
+
+  <div class="grid-3">
+    <div class="form-grupo">
+      <label>Nome do Participante</label>
+      <input type="text" id="txtNome" class="campo" placeholder="Digite o nome do participante...">
+    </div>
+
+    <div class="form-grupo">
+      <label>CPF</label>
+      <input type="text" id="txtCPF" class="campo" maxlength="14" oninput="mascaraCPF(this)" placeholder="000.000.000-00">
+    </div>
+
+    <div class="form-grupo">
+      <label>&nbsp;</label>
+      <button id="btnAdicionarParticipante" class="btn btn-verde" onclick="adicionarOuAtualizarParticipante()">➕ Adicionar</button>
+    </div>
+  </div>
+
+  <div class="card" style="background:#f4fbf7; border-color:#cfe8d8;">
+    <h3>📥 Importação de Participantes</h3>
+    <p>Cole aqui: Nome;CPF ou Nome TAB CPF ou Nome,CPF</p>
+
+    <div id="areaImportacao" style="display:none; margin-top:12px;">
+      <textarea id="txtImportacao" class="campo" rows="6" placeholder="Exemplo:
+João Silva;03446075690
+Maria Souza;12345678909"></textarea>
+      <br><br>
+      <button class="btn btn-verde" onclick="importarParticipantes()">Confirmar Importação</button>
+    </div>
+
+    <button class="btn btn-claro" onclick="abrirImportacao()">📥 Importar Participantes</button>
+  </div>
+
+  <table class="tabela">
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>CPF</th>
+        <th>Ação</th>
+      </tr>
+    </thead>
+    <tbody id="listaParticipantes"></tbody>
+  </table>
+</div>
+
+<div class="card">
+  <div class="acoes">
+    <button type="button" class="btn btn-vered" onclick="salvarTurma()">
+      💾 Salvar
+    </button>
+
+    <button type="button" id="btnDuplicarTurma" class="btn btn-claro" onclick="duplicarTurma()" disabled>
+      📋 Duplicar Turma
+    </button>
+
+    <button type="button" id="btnListaPresenca" class="btn btn-claro" onclick="gerarListaPresencaTela()" disabled>
+      📝 Lista
+    </button>
+
+    <button type="button" id="btnCertificados" class="btn btn-claro" onclick="gerarCertificadosTela()" disabled>
+      📄 Certificados
+    </button>
+
+    <button id="btnEditarTurma" class="btn btn-claro" onclick="editarTurmaAtual()"disabled>
+      ✏️ Editar
+    </button>
+
+    <button type="button" class="btn btn-claro" onclick="limparTurma()">
+      🧹 Limpar
+    </button>
+
+    <button id="btnProximaAgenda" class="btn btn-vered" onclick="carregarProximaAgendaTurma()">
+    ⏭ Carregar próxima agenda
+    </button>
+
+  </div>
+</div>
+
+<script>
+let dadosTurma = {};
+let participantes = [];
+let indiceEditando = -1;
+let turmaAtual = null;
+
+function inicializarTurmas() {
+  participantes = [];
+  indiceEditando = -1;
+  turmaAtual = null;
+
+  google.script.run
+    .withSuccessHandler(function(dados) {
+      dadosTurma = dados;
+      preencherTurmas(dados);
+      atualizarTabelaParticipantes();
+      atualizarEstadoBotoes();
+
+      setTimeout(function() {
+        preencherTurmaAPartirDaAgenda();
+      }, 300);
+    })
+    .withFailureHandler(function(erro) {
+      mostrarMensagem('Erro ao carregar turmas: ' + erro.message, 'erro');
+    })
+    .carregarDadosTurmas();
+}
+
+function preencherTurmaAPartirDaAgenda() {
+
+  const texto = sessionStorage.getItem('agendaParaTurma');
+
+  if (!texto) return;
+
+  const agendamento = JSON.parse(texto);
+
+  sessionStorage.removeItem('agendaParaTurma');
+
+  const idAgenda = agendamento.id || agendamento.idAgenda || '';
+  const idTurma = agendamento.idTurma || '';
+
+  turmaAtual = turmaAtual || {};
+  turmaAtual.idAgenda = idAgenda;
+
+  const campoIdAgenda = document.getElementById('idAgendaSelecionada');
+  if (campoIdAgenda) {
+    campoIdAgenda.value = idAgenda;
+  }
+
+  if (idTurma) {
+    carregarTurmaPorIdAgenda(idTurma);
+    return;
+  }
+
+  document.getElementById('txtEmpresa').value = agendamento.empresa || '';
+
+  document.getElementById('cboTreinamento').value = agendamento.treinamento || '';
+  document.getElementById('cboTreinamento').dispatchEvent(new Event('change'));
+
+  document.getElementById('cboInstrutor').value = agendamento.instrutor || '';
+  document.getElementById('cboInstrutor').dispatchEvent(new Event('change'));
+
+  document.getElementById('pickerDataInicial').value = agendamento.dataInicialISO || '';
+
+  calcularDataFinal();
+
+  participantes = [];
+  atualizarTabelaParticipantes();
+  atualizarEstadoBotoes();
+
+  mostrarMensagem(
+    'Cabeçalho carregado a partir do agendamento. Agora inclua os participantes.',
+    'sucesso'
+  );
+}
+
+function converterISOParaBR(dataISO) {
+
+  if (!dataISO) return '';
+
+  const p = dataISO.split('-');
+
+  return p[2] + '/' + p[1] + '/' + p[0];
+}
+
+
+function preencherTurmas(dados) {
+  const listaEmpresas = document.getElementById('listaEmpresas');
+  const cboInstrutor = document.getElementById('cboInstrutor');
+  const cboTreinamento = document.getElementById('cboTreinamento');
+
+  listaEmpresas.innerHTML = '';
+  cboInstrutor.innerHTML = '<option value="">Selecione...</option>';
+  cboTreinamento.innerHTML = '<option value="">Selecione...</option>';
+
+  dados.empresas.forEach(function(empresa) {
+    listaEmpresas.innerHTML += `<option value="${empresa}">`;
+  });
+
+  dados.instrutores.forEach(function(i) {
+    cboInstrutor.innerHTML += `
+      <option value="${i.nome}" data-hab="${i.habilitacao || ''}" data-reg="${i.registro || ''}">
+        ${i.nome}
+      </option>`;
+  });
+
+  dados.treinamentos.forEach(function(t) {
+    cboTreinamento.innerHTML += `
+      <option value="${t.topico}" data-carga="${t.carga || ''}">
+        ${t.topico}
+      </option>`;
+  });
+
+  cboInstrutor.onchange = function() {
+    const opcao = this.options[this.selectedIndex];
+    document.getElementById('txtHabilitacao').value = opcao.dataset.hab || '';
+    document.getElementById('txtRegistro').value = opcao.dataset.reg || '';
+  };
+
+  cboTreinamento.onchange = function() {
+    const opcao = this.options[this.selectedIndex];
+    const cargaNumero = extrairNumeroCarga(opcao.dataset.carga || '');
+
+    document.getElementById('txtCarga').value = cargaNumero ? cargaNumero + ' horas' : '';
+    calcularDataFinal();
+  };
+}
+
+function extrairNumeroCarga(valor) {
+  const encontrado = String(valor || '').match(/\d+/);
+  return encontrado ? Number(encontrado[0]) : 0;
+}
+
+function mascaraCPF(campo) {
+  let valor = campo.value.replace(/\D/g, '');
+
+  if (valor.length > 11) valor = valor.substring(0, 11);
+
+  valor = valor.replace(/(\d{3})(\d)/, '$1.$2');
+  valor = valor.replace(/(\d{3})(\d)/, '$1.$2');
+  valor = valor.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+
+  campo.value = valor;
+}
+
+function limparCPF(valor) {
+  return String(valor || '').replace(/\D/g, '').padStart(11, '0');
+}
+
+function formatarCPF(valor) {
+  valor = String(valor || '').replace(/\D/g, '');
+
+  if (!valor) return '';
+
+  valor = valor.padStart(11, '0');
+  valor = valor.replace(/(\d{3})(\d)/, '$1.$2');
+  valor = valor.replace(/(\d{3})(\d)/, '$1.$2');
+  valor = valor.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+
+  return valor;
+}
+
+function validarCPF(cpf) {
+  cpf = String(cpf || '').replace(/\D/g, '');
+
+  if (cpf.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(cpf)) return false;
+
+  let soma = 0;
+  let resto;
+
+  for (let i = 1; i <= 9; i++) {
+    soma += parseInt(cpf.substring(i - 1, i), 10) * (11 - i);
+  }
+
+  resto = (soma * 10) % 11;
+  if (resto === 10 || resto === 11) resto = 0;
+  if (resto !== parseInt(cpf.substring(9, 10), 10)) return false;
+
+  soma = 0;
+
+  for (let i = 1; i <= 10; i++) {
+    soma += parseInt(cpf.substring(i - 1, i), 10) * (12 - i);
+  }
+
+  resto = (soma * 10) % 11;
+  if (resto === 10 || resto === 11) resto = 0;
+
+  return resto === parseInt(cpf.substring(10, 11), 10);
+}
+
+function mascaraData(campo) {
+  let valor = campo.value.replace(/\D/g, '');
+
+  if (valor.length > 8) valor = valor.substring(0, 8);
+
+  valor = valor.replace(/(\d{2})(\d)/, '$1/$2');
+  valor = valor.replace(/(\d{2})(\d)/, '$1/$2');
+
+  campo.value = valor;
+}
+
+function calcularDataFinal() {
+  const valorISO = document.getElementById('pickerDataInicial').value;
+  const carga = extrairNumeroCarga(document.getElementById('txtCarga').value);
+
+  if (!valorISO || !carga) return;
+
+  const partesISO = valorISO.split('-');
+
+  const dia = Number(partesISO[2]);
+  const mes = Number(partesISO[1]) - 1;
+  const ano = Number(partesISO[0]);
+
+  let data = new Date(ano, mes, dia);
+
+  if (isNaN(data.getTime())) return;
+
+  while (data.getDay() === 0 || data.getDay() === 6) {
+    data.setDate(data.getDate() + 1);
+  }
+
+  let dias = Math.ceil(carga / 8) - 1;
+
+  while (dias > 0) {
+    data.setDate(data.getDate() + 1);
+
+    if (data.getDay() !== 0 && data.getDay() !== 6) {
+      dias--;
+    }
+  }
+
+  document.getElementById('txtDataFinal').value = formatarData(data);
+}
+
+function formatarData(data) {
+  return String(data.getDate()).padStart(2, '0') + '/' +
+         String(data.getMonth() + 1).padStart(2, '0') + '/' +
+         data.getFullYear();
+}
+function adicionarOuAtualizarParticipante() {
+  const nome = document.getElementById('txtNome').value.trim().toUpperCase();
+  const cpfDigitado = document.getElementById('txtCPF').value.trim();
+  const cpfLimpo = limparCPF(cpfDigitado);
+
+  if (!nome || !cpfDigitado) {
+    mostrarMensagem('Informe o nome e o CPF.', 'alerta');
+    return;
+  }
+
+  if (!validarCPF(cpfLimpo)) {
+    mostrarMensagem('CPF inválido.', 'erro');
+    return;
+  }
+
+  const jaExiste = participantes.some(function(p, index) {
+    return limparCPF(p.cpf) === cpfLimpo && index !== indiceEditando;
+  });
+
+  if (jaExiste) {
+    mostrarMensagem('Este CPF já foi adicionado.', 'alerta');
+    return;
+  }
+
+  const participante = {
+    nome: nome,
+    cpf: formatarCPF(cpfLimpo)
+  };
+
+  if (indiceEditando >= 0) {
+    participantes[indiceEditando] = participante;
+    mostrarMensagem('Participante atualizado.');
+  } else {
+    participantes.push(participante);
+    mostrarMensagem('Participante adicionado.');
+  }
+
+  cancelarEdicaoParticipante();
+  atualizarTabelaParticipantes();
+
+  turmaAtual = {
+    idAgenda: turmaAtual && turmaAtual.idAgenda ? turmaAtual.idAgenda : ''
+  };
+
+  atualizarEstadoBotoes();
+}
+
+function editarParticipante(index) {
+  const participante = participantes[index];
+
+  document.getElementById('txtNome').value = participante.nome;
+  document.getElementById('txtCPF').value = participante.cpf;
+
+  indiceEditando = index;
+
+  const botao = document.getElementById('btnAdicionarParticipante');
+  botao.innerHTML = '💾 Salvar Alteração';
+
+  document.getElementById('txtNome').focus();
+
+  mostrarMensagem('Editando participante.', 'alerta');
+}
+
+function cancelarEdicaoParticipante() {
+  indiceEditando = -1;
+
+  document.getElementById('txtNome').value = '';
+  document.getElementById('txtCPF').value = '';
+
+  const botao = document.getElementById('btnAdicionarParticipante');
+  if (botao) botao.innerHTML = '➕ Adicionar';
+}
+
+function removerParticipante(index) {
+  participantes.splice(index, 1);
+
+  if (indiceEditando === index) {
+    cancelarEdicaoParticipante();
+  }
+
+  atualizarTabelaParticipantes();
+  turmaAtual = null;
+  atualizarEstadoBotoes();
+  mostrarMensagem('Participante removido.', 'alerta');
+}
+
+function abrirImportacao() {
+  const area = document.getElementById('areaImportacao');
+
+  if (!area) return;
+
+  area.style.display = area.style.display === 'none' ? 'block' : 'none';
+}
+
+function importarParticipantes() {
+  const texto = document.getElementById('txtImportacao').value.trim();
+
+  if (!texto) {
+    mostrarMensagem('Cole os participantes para importar.', 'alerta');
+    return;
+  }
+
+  const linhas = texto.split(/\r?\n/);
+
+  let importados = 0;
+  let repetidos = 0;
+  let invalidos = 0;
+
+  linhas.forEach(function(linha) {
+    linha = linha.trim();
+
+    if (!linha) return;
+
+    const partes = linha.split(/\t|;|,/);
+
+    if (partes.length < 2) {
+      invalidos++;
+      return;
+    }
+
+    const nome = partes[0].trim().toUpperCase();
+    const cpfLimpo = limparCPF(partes[1].trim());
+
+    if (!nome || !validarCPF(cpfLimpo)) {
+      invalidos++;
+      return;
+    }
+
+    const jaExiste = participantes.some(function(p) {
+      return limparCPF(p.cpf) === cpfLimpo;
+    });
+
+    if (jaExiste) {
+      repetidos++;
+      return;
+    }
+
+    participantes.push({
+      nome: nome,
+      cpf: formatarCPF(cpfLimpo)
+    });
+
+    importados++;
+  });
+
+  document.getElementById('txtImportacao').value = '';
+  document.getElementById('areaImportacao').style.display = 'none';
+
+  atualizarTabelaParticipantes();
+
+  // Mantém o vínculo com a Agenda
+  turmaAtual = {
+    idAgenda: turmaAtual && turmaAtual.idAgenda ? turmaAtual.idAgenda : ''
+  };
+
+  atualizarEstadoBotoes();
+
+  mostrarMensagem(
+    'Importados: ' + importados +
+    ' | Repetidos: ' + repetidos +
+    ' | Inválidos: ' + invalidos
+  );
+}
+
+function atualizarTabelaParticipantes() {
+  const tbody = document.getElementById('listaParticipantes');
+  const titulo = document.getElementById('tituloParticipantes');
+
+  tbody.innerHTML = '';
+  titulo.innerText = '👥 Participantes (' + participantes.length + ')';
+
+  if (participantes.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="3" style="text-align:center; color:#6c757d;">
+          👥 Nenhum participante adicionado.
+        </td>
+      </tr>`;
+    return;
+  }
+
+  participantes.forEach(function(p, index) {
+    tbody.innerHTML += `
+      <tr>
+        <td>${p.nome}</td>
+        <td>${p.cpf}</td>
+        <td>
+          <button class="btn btn-verde" onclick="editarParticipante(${index})">✏️</button>
+          <button class="btn btn-vermelho" onclick="removerParticipante(${index})">🗑</button>
+        </td>
+      </tr>`;
+  });
+}
+
+function montarDadosTurma() {
+  const cargaNumero = extrairNumeroCarga(document.getElementById('txtCarga').value);
+
+  return {
+    idAgenda: document.getElementById('idAgendaSelecionada').value || '',
+    empresa: document.getElementById('txtEmpresa').value.trim().toUpperCase(),
+    topico: document.getElementById('cboTreinamento').value,
+    carga: cargaNumero,
+    instrutor: document.getElementById('cboInstrutor').value,
+    habilitacao: document.getElementById('txtHabilitacao').value,
+    registro: document.getElementById('txtRegistro').value,
+    inicial: converterISOParaBR(document.getElementById('pickerDataInicial').value),
+    final: document.getElementById('txtDataFinal').value,
+    participantes: participantes
+  };
+}
+
+function validarDadosTurma(dados) {
+  if (!dados.empresa) return 'Informe a empresa.';
+  if (!dados.topico) return 'Selecione o treinamento.';
+  if (!dados.carga) return 'Carga horária inválida.';
+  if (!dados.instrutor) return 'Selecione o instrutor.';
+  if (!dados.inicial || !dados.final) return 'Informe a data inicial.';
+  if (participantes.length === 0) return 'Adicione pelo menos um participante.';
+
+  return '';
+}
+
+function salvarTurma() {
+  const dados = montarDadosTurma();
+
+
+  // Mantém o vínculo com a Agenda, se a turma veio da Agenda
+  if (turmaAtual && turmaAtual.idAgenda) {
+    dados.idAgenda = turmaAtual.idAgenda;
+  }
+
+  const erro = validarDadosTurma(dados);
+
+  if (erro) {
+    mostrarMensagem(erro, 'alerta');
+    return;
+  }
+
+  mostrarLoading();
+
+  google.script.run
+    .withSuccessHandler(function(retorno) {
+      esconderLoading();
+
+      turmaAtual = {
+        ...dados,
+        idAgenda: dados.idAgenda || '',
+        idTurma: retorno.idTurma || '',
+        idsSalvos: retorno.ids || [],
+        quantidade: retorno.quantidade || participantes.length,
+        participantes: [...participantes],
+        salva: true
+      };
+
+      document.getElementById('txtIdTurma').value = retorno.idTurma || '';
+      document.getElementById('idTurmaSelecionada').value = retorno.idTurma || '';
+      window.idTurmaSelecionada = retorno.idTurma || '';
+
+      mostrarMensagem(retorno.mensagem || 'Turma salva com sucesso.');
+      atualizarEstadoBotoes();
+    })
+    .withFailureHandler(function(erro) {
+      esconderLoading();
+      mostrarMensagem('Erro ao salvar: ' + erro.message, 'erro');
+    })
+    .salvarTurma(dados);
+}
+
+function duplicarTurma() {
+  if (!participantes.length) {
+    mostrarMensagem('Não há turma para duplicar.', 'alerta');
+    return;
+  }
+
+  document.getElementById('cboTreinamento').value = '';
+  document.getElementById('txtCarga').value = '';
+  document.getElementById('pickerDataInicial').value = '';
+  document.getElementById('txtDataFinal').value = '';
+
+  document.getElementById('txtIdTurma').value = 'Nova Turma';
+  document.getElementById('idTurmaSelecionada').value = '';
+
+  const campoIdAgenda = document.getElementById('idAgendaSelecionada');
+  if (campoIdAgenda) {
+    campoIdAgenda.value = '';
+  }
+
+  window.idTurmaSelecionada = null;
+
+  turmaAtual = null;
+
+  atualizarEstadoBotoes();
+
+  document.getElementById('cboTreinamento').focus();
+
+  mostrarMensagem(
+    'Turma duplicada. Escolha o próximo treinamento e salve para gerar novo ID.',
+    'alerta'
+  );
+}
+
+function gerarListaPresenca() {
+  if (!turmaAtual || !turmaAtual.salva) {
+    mostrarMensagem('Salve a turma antes de gerar a lista.', 'alerta');
+    return;
+  }
+
+  mostrarLoading();
+
+  google.script.run
+    .withSuccessHandler(function(retorno) {
+      esconderLoading();
+
+      if (!retorno || !retorno.sucesso) {
+        mostrarMensagem('Não foi possível gerar a lista.', 'erro');
+        return;
+      }
+
+      mostrarMensagem(retorno.mensagem || 'Lista de presença gerada com sucesso.');
+
+      if (retorno.url) {
+        window.open(retorno.url, '_blank');
+      }
+    })
+    .withFailureHandler(function(erro) {
+      esconderLoading();
+      mostrarMensagem('Erro ao gerar lista: ' + erro.message, 'erro');
+    })
+    .gerarListaPresencaPorIdTurma(turmaAtual.idTurma);
+}
+
+function gerarCertificados() {
+  if (!turmaAtual || !turmaAtual.salva) {
+    mostrarMensagem('Salve a turma antes de gerar certificados.', 'alerta');
+    return;
+  }
+
+  const destino = prompt(
+    'Digite o destino:\n\nGOOGLE_DOCS\nPDF\nAMBOS',
+    'PDF'
+  );
+
+  if (!destino) return;
+
+  const destinoFinal = destino.trim().toUpperCase();
+
+  if (!['GOOGLE_DOCS', 'PDF', 'AMBOS'].includes(destinoFinal)) {
+    mostrarMensagem('Destino inválido. Use GOOGLE_DOCS, PDF ou AMBOS.', 'erro');
+    return;
+  }
+
+  const pasta = prompt(
+    'Cole o link ou ID da pasta do Google Drive onde os certificados serão salvos:'
+  );
+
+  if (!pasta) return;
+
+  mostrarLoading();
+
+  google.script.run
+    .withSuccessHandler(function(retorno) {
+      esconderLoading();
+
+      if (!retorno || !retorno.sucesso) {
+        mostrarMensagem('Não foi possível gerar os certificados.', 'erro');
+        return;
+      }
+
+      mostrarMensagem(retorno.quantidade + ' certificado(s) gerado(s) com sucesso.');
+
+      if (retorno.pastaUrl) {
+        window.open(retorno.pastaUrl, '_blank');
+      }
+    })
+    .withFailureHandler(function(erro) {
+      esconderLoading();
+      mostrarMensagem('Erro ao gerar certificados: ' + erro.message, 'erro');
+    })
+    .gerarCertificadosPorIdTurma(
+      turmaAtual.idTurma,
+      destinoFinal,
+      pasta
+    );
+}
+
+
+function atualizarEstadoBotoes() {
+  const turmaSalva = Boolean(
+    turmaAtual &&
+    turmaAtual.salva &&
+    turmaAtual.idTurma
+  );
+
+  document.getElementById('btnDuplicarTurma').disabled =
+    participantes.length === 0;
+
+  document.getElementById('btnListaPresenca').disabled = !turmaSalva;
+  document.getElementById('btnCertificados').disabled = !turmaSalva;
+
+  const btnEditarTurma =
+    document.getElementById('btnEditarTurma');
+
+  if (btnEditarTurma) {
+    btnEditarTurma.disabled = !turmaSalva;
+  }
+
+  const status = document.getElementById('statusTurma');
+
+  if (turmaSalva) {
+    status.innerText =
+      'Turma salva - edição, lista e certificados liberados';
+
+    status.style.color = '#0b8f43';
+  } else {
+    status.innerText = 'Turma ainda não salva';
+    status.style.color = '#6c757d';
+  }
+}
+
+function limparTurma() {
+  participantes = [];
+  indiceEditando = -1;
+  turmaAtual = null;
+  document.getElementById('txtIdTurma').value = 'Nova Turma';
+document.getElementById('idTurmaSelecionada').value = '';
+window.idTurmaSelecionada = null;
+
+  const campos = [
+    'txtEmpresa',
+    'cboTreinamento',
+    'txtCarga',
+    'pickerDataInicial',
+    'txtDataFinal',
+    'cboInstrutor',
+    'txtHabilitacao',
+    'txtRegistro',
+    'txtNome',
+    'txtCPF',
+    'txtImportacao'
+  ];
+
+  campos.forEach(function(id) {
+    const campo = document.getElementById(id);
+    if (campo) campo.value = '';
+  });
+
+  const area = document.getElementById('areaImportacao');
+  if (area) area.style.display = 'none';
+
+  cancelarEdicaoParticipante();
+  atualizarTabelaParticipantes();
+  atualizarEstadoBotoes();
+
+  mostrarMensagem('Turma limpa.', 'alerta');
+}
+
+function carregarTurmaPorIdAgenda(idTurma) {
+  google.script.run
+    .withSuccessHandler(function(turma) {
+      turmaAtual = turma || {};
+      turmaAtual.idTurma = turma.idTurma || idTurma;
+      turmaAtual.salva = true;
+
+      document.getElementById('txtIdTurma').value = turmaAtual.idTurma;
+      document.getElementById('idTurmaSelecionada').value = turmaAtual.idTurma;
+      window.idTurmaSelecionada = turmaAtual.idTurma;
+
+      document.getElementById('txtEmpresa').value = turma.empresa || '';
+
+      document.getElementById('cboTreinamento').value = turma.treinamento || '';
+      document.getElementById('cboTreinamento').dispatchEvent(new Event('change'));
+
+      document.getElementById('cboInstrutor').value = turma.instrutor || '';
+      document.getElementById('cboInstrutor').dispatchEvent(new Event('change'));
+
+      document.getElementById('txtCarga').value = turma.carga ? extrairNumeroCarga(turma.carga) + ' horas' : '';
+      document.getElementById('pickerDataInicial').value = converterBRParaISO(turma.dataInicio || '');
+      document.getElementById('txtDataFinal').value = turma.dataFim || '';
+
+      participantes = turma.participantes || [];
+
+      atualizarTabelaParticipantes();
+      atualizarEstadoBotoes();
+
+      mostrarMensagem('Turma carregada pela Agenda.', 'sucesso');
+    })
+    .withFailureHandler(function(erro) {
+      mostrarMensagem('Erro ao carregar turma: ' + erro.message, 'erro');
+    })
+    .carregarTurmaAgendaPorId(idTurma);
+}
+
+function selecionarDataInicial() {
+  calcularDataFinal();
+}
+
+function converterBRParaISO(dataBR) {
+  if (!dataBR) return '';
+
+  const p = dataBR.split('/');
+  if (p.length !== 3) return '';
+
+  return p[2] + '-' + p[1] + '-' + p[0];
+}
+
+</script>

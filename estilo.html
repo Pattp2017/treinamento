@@ -1,0 +1,680 @@
+<style>
+:root {
+  --verde-principal: #0b8f43;
+  --verde-escuro: #066331;
+  --verde-claro: #7ed321;
+  --fundo: #f5f7f7;
+  --branco: #ffffff;
+  --borda: #dde6e3;
+  --texto: #2d3436;
+  --cinza: #6c757d;
+  --vermelho: #dc3545;
+  --amarelo: #ffc107;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: var(--fundo);
+  color: var(--texto);
+}
+
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 260px;
+  background: linear-gradient(180deg, var(--verde-principal), var(--verde-escuro));
+  color: var(--branco);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+}
+
+.logo {
+  font-size: 22px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.logo-sub {
+  font-size: 12px;
+  opacity: 0.9;
+  margin-bottom: 30px;
+}
+
+.menu-item {
+  padding: 13px 15px;
+  border-radius: 12px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: 0.2s;
+  font-size: 15px;
+}
+
+.menu-item:hover,
+.menu-item.ativo {
+  background: rgba(255,255,255,0.18);
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  height: 68px;
+  background: var(--branco);
+  border-bottom: 1px solid var(--borda);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+}
+
+.titulo-pagina {
+  font-size: 22px;
+  font-weight: bold;
+  color: var(--verde-escuro);
+}
+
+.usuario {
+  font-size: 14px;
+  color: var(--cinza);
+}
+
+.conteudo {
+  padding: 28px;
+}
+
+.card {
+  background: var(--branco);
+  border: 1px solid var(--borda);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.04);
+  margin-bottom: 22px;
+}
+
+.card h2,
+.card h3 {
+  margin-top: 0;
+  color: var(--verde-escuro);
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+label {
+  font-weight: bold;
+  font-size: 13px;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.campo {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+}
+
+.campo:focus {
+  border-color: var(--verde-principal);
+  box-shadow: 0 0 0 3px rgba(11,143,67,0.12);
+}
+
+.form-grupo {
+  margin-bottom: 15px;
+}
+
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 12px 18px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  transition: 0.2s;
+}
+
+.btn-verde {
+  background: var(--verde-principal);
+  color: white;
+}
+
+.btn-verde:hover {
+  background: var(--verde-escuro);
+}
+
+.btn-claro {
+  background: #eaf6ef;
+  color: var(--verde-escuro);
+}
+
+.btn-vermelho {
+  background: var(--vermelho);
+  color: white;
+}
+
+.acoes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tabela th {
+  background: #eef7f2;
+  color: var(--verde-escuro);
+  text-align: left;
+  padding: 12px;
+  font-size: 13px;
+}
+
+.tabela td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--borda);
+  font-size: 14px;
+}
+
+.toast {
+  position: fixed;
+  right: 25px;
+  bottom: 25px;
+  background: var(--verde-principal);
+  color: white;
+  padding: 14px 20px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.18);
+  display: none;
+  z-index: 9999;
+}
+
+.loading {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,0.65);
+  z-index: 9998;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: var(--verde-escuro);
+}
+
+@media (max-width: 900px) {
+  .app {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+  }
+
+  .grid-2,
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+@media(max-width:900px){
+
+    .grid-2,
+    .grid-3{
+        grid-template-columns:1fr;
+    }
+
+}
+
+.grid-empresa-turma{
+    display:grid;
+    grid-template-columns: 1fr 170px;
+    gap:15px;
+    align-items:end;
+}
+
+.grid-empresa-turma .empresa{
+    grid-column:1;
+}
+
+.grid-empresa-turma .turma{
+    grid-column:2;
+}
+
+#txtIdTurma{
+    text-align:center;
+    font-weight:bold;
+    color:#0b5ed7;
+    background:#eef5ff;
+}
+
+/*=====================================================
+=                AJUSTES ESOCIAL
+=====================================================*/
+
+textarea.campo {
+  resize: vertical;
+  min-height: 90px;
+}
+
+#mensagem {
+  margin-top: 15px;
+  font-weight: bold;
+}
+
+#resultado {
+  margin-top: 20px;
+  overflow-x: auto;
+}
+
+#resultado table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+#resultado th {
+  background: #eef7f2;
+  color: var(--verde-escuro);
+  text-align: left;
+  padding: 12px;
+  font-size: 13px;
+}
+
+#resultado td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--borda);
+  font-size: 14px;
+}
+
+#resultado tr:hover {
+  background: #fafafa;
+}
+
+/*=====================================================
+AGENDA
+=====================================================*/
+
+.agenda-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.agenda-controles {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.agenda-semana,
+.agenda-grade {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.agenda-semana {
+  margin-top: 18px;
+  font-weight: 700;
+  color: #334155;
+  text-align: center;
+}
+
+.agenda-dia {
+  min-height: 130px;
+  background: #f8fafc;
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+  padding: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.agenda-dia:hover {
+  background: #eef6ff;
+  border-color: #2563eb;
+}
+
+.agenda-dia.vazio {
+  background: transparent;
+  border: none;
+  cursor: default;
+}
+
+.agenda-numero {
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 6px;
+}
+
+.agenda-card {
+  background: #ffffff;
+  border-left: 4px solid #2563eb;
+  border-radius: 10px;
+  padding: 7px;
+  margin-top: 6px;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+
+.agenda-card strong {
+  display: block;
+  color: #0f172a;
+}
+
+.agenda-card span {
+  display: block;
+  color: #475569;
+}
+
+.agenda-etapas {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.agenda-etapa {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  color: white;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.agenda-etapa.ativa {
+  background: currentColor;
+}
+
+.modal-agenda {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal-agenda.oculto {
+  display: none;
+}
+
+.modal-agenda-conteudo {
+  background: white;
+  width: 460px;
+  max-width: 95%;
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+}
+
+.data-selecionada {
+  background: #eff6ff;
+  padding: 10px;
+  border-radius: 10px;
+  color: #1e3a8a;
+}
+
+.modal-botoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.agenda-card{
+    border-left:6px solid #999;
+}
+
+.agenda-card.agenda-raphael{
+  border-left-color:#2E7D32;
+  color:#2E7D32;
+}
+
+.agenda-card.agenda-patricia{
+  border-left-color:#1565C0;
+  color:#1565C0;
+}
+
+.agenda-card.agenda-ester{
+  border-left-color:#D81B60;
+  color:#D81B60;
+}
+
+.agenda-card.agenda-raissa{
+  border-left-color:#FBC02D;
+  color:#FBC02D;
+}
+
+.agenda-card.agenda-bruno{
+  border-left-color:#C62828;
+  color:#C62828;
+}
+
+.agenda-card.agenda-padrao{
+  border-left-color:#757575;
+  color:#757575;
+}
+
+.agenda-etapas {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding: 4px 6px;
+}
+
+.agenda-progresso-fundo {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 50%;
+  height: 6px;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.agenda-progresso-preenchido {
+  height: 100%;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.32;
+  transition: width 0.35s ease;
+}
+
+.agenda-etapa {
+  position: relative;
+  z-index: 2;
+}
+
+.agenda-card strong {
+  color: #0f172a;
+}
+
+.agenda-card span {
+  color: #475569;
+}
+
+.agenda-dia.fim-semana {
+  background: #f1f5f9;
+  opacity: 0.75;
+}
+
+.agenda-card strong {
+  color: #0f172a;
+}
+
+.agenda-card span {
+  color: #475569;
+}
+
+
+.campo-data{
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+
+.campo-data .campo{
+    flex:1;
+}
+
+.btn-calendario{
+    width:42px;
+    height:42px;
+    border:1px solid var(--borda);
+    border-radius:10px;
+    background:#fff;
+    cursor:pointer;
+    font-size:16px;
+}
+
+.btn-calendario:hover{
+    background:#eef7f2;
+}
+
+.picker-data-real {
+  width: 1px;
+  height: 1px;
+  opacity: 0.01;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+  color: #9ca3af;
+  border-color: #e5e7eb;
+  cursor: wait;
+}
+
+#btnProximaAgenda{
+    min-width:220px;
+    white-space:nowrap;
+}
+
+#btnProximaAgenda {
+  white-space: nowrap;
+}
+
+
+.oculto {
+  display: none !important;
+}
+
+//============================== botão excluir  =======================================================
+.agenda-card {
+  position: relative;
+}
+
+.agenda-card-cabecalho {
+  position: relative;
+  padding-right: 24px;
+}
+
+.agenda-botao-menu {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+
+  width: 24px;
+  height: 24px;
+
+  border: none;
+  border-radius: 50%;
+
+  background: transparent;
+  color: #495057;
+
+  font-size: 20px;
+  font-weight: bold;
+  line-height: 20px;
+
+  cursor: pointer;
+}
+
+.agenda-botao-menu:hover {
+  background: #e9ecef;
+}
+
+.agenda-menu-acoes {
+  position: absolute;
+  top: 24px;
+  right: 0;
+
+  min-width: 180px;
+  padding: 5px;
+
+  background: white;
+  border: 1px solid #dcdcdc;
+  border-radius: 7px;
+
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  z-index: 9999;
+}
+
+.agenda-menu-acoes.oculto {
+  display: none;
+}
+
+.agenda-menu-acoes button {
+  width: 100%;
+  padding: 8px;
+
+  border: none;
+  background: transparent;
+
+  text-align: left;
+  color: #b02a37;
+  cursor: pointer;
+}
+
+.agenda-menu-acoes button:hover {
+  background: #f8d7da;
+}
+</style>
