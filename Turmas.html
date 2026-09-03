@@ -446,9 +446,10 @@ function adicionarOuAtualizarParticipante() {
   cancelarEdicaoParticipante();
   atualizarTabelaParticipantes();
 
-  turmaAtual = {
-    idAgenda: turmaAtual && turmaAtual.idAgenda ? turmaAtual.idAgenda : ''
-  };
+  // Preserva o vínculo com a Agenda e apenas marca a turma como ainda não salva.
+  turmaAtual = turmaAtual || {};
+  turmaAtual.idAgenda = obterIdAgendaTurmaAtual();
+  turmaAtual.salva = false;
 
   atualizarEstadoBotoes();
 }
@@ -487,7 +488,12 @@ function removerParticipante(index) {
   }
 
   atualizarTabelaParticipantes();
-  turmaAtual = null;
+
+  // Não perde o ID Agenda ao remover um participante antes do salvamento.
+  turmaAtual = turmaAtual || {};
+  turmaAtual.idAgenda = obterIdAgendaTurmaAtual();
+  turmaAtual.salva = false;
+
   atualizarEstadoBotoes();
   mostrarMensagem('Participante removido.', 'alerta');
 }
@@ -556,10 +562,10 @@ function importarParticipantes() {
 
   atualizarTabelaParticipantes();
 
-  // Mantém o vínculo com a Agenda
-  turmaAtual = {
-    idAgenda: turmaAtual && turmaAtual.idAgenda ? turmaAtual.idAgenda : ''
-  };
+  // Mantém o vínculo com a Agenda.
+  turmaAtual = turmaAtual || {};
+  turmaAtual.idAgenda = obterIdAgendaTurmaAtual();
+  turmaAtual.salva = false;
 
   atualizarEstadoBotoes();
 
@@ -600,11 +606,21 @@ function atualizarTabelaParticipantes() {
   });
 }
 
+function obterIdAgendaTurmaAtual() {
+  const campo = document.getElementById('idAgendaSelecionada');
+  const idCampo = campo ? String(campo.value || '').trim() : '';
+  const idMemoria = turmaAtual && turmaAtual.idAgenda
+    ? String(turmaAtual.idAgenda).trim()
+    : '';
+
+  return idCampo || idMemoria;
+}
+
 function montarDadosTurma() {
   const cargaNumero = extrairNumeroCarga(document.getElementById('txtCarga').value);
 
   return {
-    idAgenda: document.getElementById('idAgendaSelecionada').value || '',
+    idAgenda: obterIdAgendaTurmaAtual(),
     empresa: document.getElementById('txtEmpresa').value.trim().toUpperCase(),
     topico: document.getElementById('cboTreinamento').value,
     carga: cargaNumero,
@@ -631,12 +647,6 @@ function validarDadosTurma(dados) {
 function salvarTurma() {
   const dados = montarDadosTurma();
 
-
-  // Mantém o vínculo com a Agenda, se a turma veio da Agenda
-  if (turmaAtual && turmaAtual.idAgenda) {
-    dados.idAgenda = turmaAtual.idAgenda;
-  }
-
   const erro = validarDadosTurma(dados);
 
   if (erro) {
@@ -652,7 +662,7 @@ function salvarTurma() {
 
       turmaAtual = {
         ...dados,
-        idAgenda: dados.idAgenda || '',
+        idAgenda: retorno.idAgenda || dados.idAgenda || '',
         idTurma: retorno.idTurma || '',
         idsSalvos: retorno.ids || [],
         quantidade: retorno.quantidade || participantes.length,
@@ -662,6 +672,7 @@ function salvarTurma() {
 
       document.getElementById('txtIdTurma').value = retorno.idTurma || '';
       document.getElementById('idTurmaSelecionada').value = retorno.idTurma || '';
+      document.getElementById('idAgendaSelecionada').value = retorno.idAgenda || dados.idAgenda || '';
       window.idTurmaSelecionada = retorno.idTurma || '';
 
       mostrarMensagem(retorno.mensagem || 'Turma salva com sucesso.');
@@ -830,8 +841,9 @@ function limparTurma() {
   indiceEditando = -1;
   turmaAtual = null;
   document.getElementById('txtIdTurma').value = 'Nova Turma';
-document.getElementById('idTurmaSelecionada').value = '';
-window.idTurmaSelecionada = null;
+  document.getElementById('idTurmaSelecionada').value = '';
+  document.getElementById('idAgendaSelecionada').value = '';
+  window.idTurmaSelecionada = null;
 
   const campos = [
     'txtEmpresa',
@@ -865,12 +877,16 @@ window.idTurmaSelecionada = null;
 function carregarTurmaPorIdAgenda(idTurma) {
   google.script.run
     .withSuccessHandler(function(turma) {
+      const idAgendaPreservado = obterIdAgendaTurmaAtual();
+
       turmaAtual = turma || {};
+      turmaAtual.idAgenda = turmaAtual.idAgenda || idAgendaPreservado;
       turmaAtual.idTurma = turma.idTurma || idTurma;
       turmaAtual.salva = true;
 
       document.getElementById('txtIdTurma').value = turmaAtual.idTurma;
       document.getElementById('idTurmaSelecionada').value = turmaAtual.idTurma;
+      document.getElementById('idAgendaSelecionada').value = turmaAtual.idAgenda || '';
       window.idTurmaSelecionada = turmaAtual.idTurma;
 
       document.getElementById('txtEmpresa').value = turma.empresa || '';
