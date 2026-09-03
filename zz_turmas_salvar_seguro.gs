@@ -115,7 +115,6 @@ function localizarTurmaPorIdAgenda_(ss, abaProtocolo, idAgenda) {
     return { encontrada: false, idTurma: '' };
   }
 
-  // 1) Confere primeiro a própria Agenda.
   const abaAgenda = ss.getSheetByName(AGENDA_ABA);
 
   if (abaAgenda && abaAgenda.getLastRow() >= 2) {
@@ -140,7 +139,6 @@ function localizarTurmaPorIdAgenda_(ss, abaProtocolo, idAgenda) {
     }
   }
 
-  // 2) Confere o Protocolo para cobrir inconsistências antigas.
   if (abaProtocolo && abaProtocolo.getLastRow() >= 2) {
     const ultimaColuna = abaProtocolo.getLastColumn();
     const cabecalho = abaProtocolo
@@ -179,3 +177,9 @@ function localizarTurmaPorIdAgenda_(ss, abaProtocolo, idAgenda) {
 
   return { encontrada: false, idTurma: '' };
 }
+
+// Mantém compatibilidade com a tela atual, que chama salvarTurma(dados).
+// Como este arquivo é carregado após turmas.gs, a chamada pública passa a
+// usar a versão protegida sem exigir alteração imediata do HTML.
+var salvarTurmaLegado_ = salvarTurma;
+salvarTurma = salvarTurmaSeguro;
