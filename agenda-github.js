@@ -148,16 +148,27 @@
     document.getElementById('modalAgenda').classList.remove('oculto');
   }
 
+  function localizarTreinamentoDoEvento(ev) {
+    if (ev.treinamento_id) {
+      const porId = treinamentos.find(t => String(t.id) === String(ev.treinamento_id));
+      if (porId) return porId;
+    }
+    const nome = String(ev.treinamento || '').trim().toLowerCase();
+    return treinamentos.find(t => String(t.nome || '').trim().toLowerCase() === nome) || null;
+  }
+
   function abrirEdicao(ev) {
     eventoEditando = ev;
+    const treinamento = localizarTreinamentoDoEvento(ev);
+
     document.getElementById('tituloModalAgenda').textContent = 'Editar agendamento';
     document.getElementById('salvarAgenda').textContent = 'Atualizar';
     document.getElementById('agData').value = ev.data_inicio || '';
     document.getElementById('agDataFim').value = ev.data_fim || '';
     document.getElementById('agEmpresa').value = ev.empresa || '';
-    document.getElementById('agTreinamento').value = ev.treinamento_id || '';
-    document.getElementById('agNorma').value = ev.norma || '';
-    document.getElementById('agCarga').value = ev.carga_horaria ?? '';
+    document.getElementById('agTreinamento').value = treinamento ? String(treinamento.id) : '';
+    document.getElementById('agNorma').value = ev.norma || treinamento?.norma || '';
+    document.getElementById('agCarga').value = ev.carga_horaria ?? treinamento?.carga_horaria_padrao ?? '';
     document.getElementById('agInstrutor').value = ev.instrutor || '';
     document.getElementById('agObservacao').value = ev.observacao || '';
     document.getElementById('modalAgenda').classList.remove('oculto');
@@ -166,6 +177,16 @@
   function fecharModal() {
     document.getElementById('modalAgenda').classList.add('oculto');
     eventoEditando = null;
+  }
+
+  function filtroRegistroAgenda(ev) {
+    if (ev.id !== undefined && ev.id !== null && ev.id !== '') {
+      return 'id=eq.' + encodeURIComponent(ev.id);
+    }
+    if (ev.codigo) {
+      return 'codigo=eq.' + encodeURIComponent(ev.codigo);
+    }
+    throw new Error('O agendamento não possui identificador para atualização.');
   }
 
   async function salvar() {
@@ -196,7 +217,7 @@
 
     try {
       if (eventoEditando) {
-        await supabaseFetch('agenda?id=eq.' + encodeURIComponent(eventoEditando.id), {
+        await supabaseFetch('agenda?' + filtroRegistroAgenda(eventoEditando), {
           method: 'PATCH',
           headers: { Prefer: 'return=representation' },
           body: JSON.stringify(dados)
@@ -222,17 +243,44 @@
   function cardEvento(ev) {
     const div = document.createElement('div');
     div.className = 'agenda-card';
-    div.title = 'Clique para editar';
-    div.innerHTML = `
-      <strong>${ev.empresa || ''}</strong>
-      <span>${ev.treinamento || ''}</span>
-      <small>${ev.instrutor || ''}</small>
-      <div class="etapa">Etapa ${ev.etapa || 1}/4</div>
-      <div style="margin-top:6px;font-size:11px;font-weight:bold">✏️ Editar</div>`;
-    div.onclick = (e) => {
+    div.title = 'Clique em Editar para alterar este agendamento';
+
+    const empresa = document.createElement('strong');
+    empresa.textContent = ev.empresa || '';
+
+    const treinamento = document.createElement('span');
+    treinamento.textContent = ev.treinamento || '';
+
+    const instrutor = document.createElement('small');
+    instrutor.textContent = ev.instrutor || '';
+
+    const etapa = document.createElement('div');
+    etapa.className = 'etapa';
+    etapa.textContent = 'Etapa ' + (ev.etapa || 1) + '/4';
+
+    const botaoEditar = document.createElement('button');
+    botaoEditar.type = 'button';
+    botaoEditar.className = 'btn';
+    botaoEditar.textContent = '✏️ Editar';
+    botaoEditar.style.marginTop = '6px';
+    botaoEditar.style.padding = '5px 8px';
+    botaoEditar.style.fontSize = '11px';
+    botaoEditar.addEventListener('click', function(e) {
+      e.preventDefault();
       e.stopPropagation();
       abrirEdicao(ev);
-    };
+    });
+
+    div.addEventListener('click', function(e) {
+      e.stopPropagation();
+    });
+
+    div.appendChild(empresa);
+    div.appendChild(treinamento);
+    div.appendChild(instrutor);
+    div.appendChild(etapa);
+    div.appendChild(botaoEditar);
+
     return div;
   }
 
