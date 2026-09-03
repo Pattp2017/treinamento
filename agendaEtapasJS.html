@@ -1,0 +1,206 @@
+<script>
+//=====================================================
+// ACOES DAS ETAPAS DA AGENDA
+// Corrige chamadas, bloqueios e fluxo Agenda -> Turma -> Lista -> Certificados.
+// Este arquivo é carregado depois do agendaJS e sobrescreve apenas as funções
+// de etapas, preservando o restante da tela.
+//=====================================================
+
+function normalizarStatusAgendaTela_(status) {
+  return String(status || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function agendamentoCanceladoTela_(agendamento) {
+  const status = normalizarStatusAgendaTela_(agendamento && agendamento.status);
+  return status === 'cancelado' || status === 'cancelada';
+}
+
+function montarEtapasAgenda(etapa, ev) {
+  etapa = Number(etapa || 1);
+  if (etapa < 1) etapa = 1;
+  if (etapa > 4) etapa = 4;
+
+  const cancelado = agendamentoCanceladoTela_(ev);
+  const percentual = etapa * 25;
+
+  let html = `
+    <div class="agenda-etapas">
+      <div class="agenda-progresso-fundo">
+        <div class="agenda-progresso-preenchido" style="width:${percentual}%;"></div>
+      </div>
+  `;
+
+  const etapas = [
+    { numero: 1, icone: '📅', titulo: 'Agendado', acao: 'agenda' },
+    { numero: 2, icone: '👥', titulo: ev.idTurma ? 'Abrir turma' : 'Cadastrar turma', acao: 'turma' },
+    { numero: 3, icone: '📋', titulo: 'Lista de presença', acao: 'lista' },
+    { numero: 4, icone: '🎓', titulo: 'Certificados', acao: 'certificados' }
+  ];
+
+  etapas.forEach(function(item) {
+    const concluida = item.numero <= etapa;
+    let liberada = true;
+    let motivo = item.titulo;
+
+    if (cancelado && item.numero > 1) {
+      liberada = false;
+      motivo = 'Agendamento cancelado';
+    } else if (item.numero === 3 && !ev.idTurma) {
+      liberada = false;
+      motivo = 'Cadastre a turma antes de gerar a lista';
+    } else if (item.numero === 4 && (!ev.idTurma || etapa < 3)) {
+      liberada = false;
+      motivo = 'Gere a lista de presença antes dos certificados';
+    }
+
+    const classes = [
+      'agenda-etapa',
+      concluida ? 'ativa' : '',
+      liberada ? '' : 'bloqueada'
+    ].filter(Boolean).join(' ');
+
+    const estilo = liberada
+      ? 'cursor:pointer;'
+      : 'cursor:not-allowed;opacity:0.45;';
+
+    html += `
+      <div class="${classes}"
+           style="${estilo}"
+           title="${motivo}"
+           onclick="executarAcaoEtapaAgenda(event, '${item.acao}', '${ev.id}')">
+        ${item.icone}
+      </div>
+    `;
+  });
+
+  html += '</div>';
+  return html;
+}
+
+function executarAcaoEtapaAgenda(event, acao, idAgenda) {
+  if (event) event.stopPropagation();
+
+  const agendamento = agendaEventos.find(function(ev) {
+    return String(ev.id) === String(idAgenda);
+  });
+
+  if (!agendamento) {
+    mostrarMensagem('Agendamento não encontrado.', 'erro');
+    return;
+  }
+
+  const etapa = Math.max(1, Math.min(4, Number(agendamento.etapa || 1)));
+  const cancelado = agendamentoCanceladoTela_(agendamento);
+
+  if (acao === 'agenda') {
+    const textoStatus = cancelado
+      ? 'Agendamento cancelado.'
+      : 'Agendamento ativo - etapa ' + etapa + ' de 4.';
+    mostrarMensagem(textoStatus, cancelado ? 'alerta' : 'sucesso');
+    return;
+  }
+
+  if (cancelado) {
+    mostrarMensagem(
+      'Este agendamento está cancelado. As etapas operacionais estão bloqueadas.',
+      'alerta'
+    );
+    return;
+  }
+
+  if (acao === 'turma') {
+    sessionStorage.setItem('agendaParaTurma', JSON.stringify(agendamento));
+
+    const itemTurmas = document.querySelector('.menu-item[onclick*="Turmas"]');
+    abrirModulo('Turmas', itemTurmas);
+    return;
+  }
+
+  if (acao === 'lista') {
+    if (!agendamento.idTurma) {
+      mostrarMensagem('Primeiro cadastre a turma e os participantes.', 'alerta');
+      return;
+    }
+
+    mostrarLoading();
+
+    google.script.run
+      .withSuccessHandler(function(retorno) {
+        esconderLoading();
+
+        mostrarMensagem(
+          retorno && retorno.mensagem
+            ? retorno.mensagem
+            : 'Lista de presença gerada com sucesso!',
+          'sucesso'
+        );
+
+        if (retorno && retorno.url) {
+          window.open(retorno.url, '_blank');
+        } else if (retorno && retorno.pastaUrl) {
+          window.open(retorno.pastaUrl, '_blank');
+        }
+
+        carregarEventosAgenda();
+      })
+      .withFailureHandler(function(erro) {
+        esconderLoading();
+        mostrarMensagem('Erro ao gerar lista: ' + erro.message, 'erro');
+      })
+      .gerarListaPresencaPorIdTurma(agendamento.idTurma);
+
+    return;
+  }
+
+  if (acao === 'certificados') {
+    if (!agendamento.idTurma) {
+      mostrarMensagem('Primeiro cadastre a turma e os participantes.', 'alerta');
+      return;
+    }
+
+    if (etapa < 3) {
+      mostrarMensagem(
+        'Gere a lista de presença antes de gerar os certificados.',
+        'alerta'
+      );
+      return;
+    }
+
+    const confirmar = confirm(
+      'Gerar os certificados da turma ' + agendamento.idTurma + '?\n\n' +
+      'Serão gerados certificados para todos os participantes cadastrados.'
+    );
+
+    if (!confirmar) return;
+
+    mostrarLoading();
+
+    google.script.run
+      .withSuccessHandler(function(retorno) {
+        esconderLoading();
+
+        mostrarMensagem(
+          retorno && retorno.mensagem
+            ? retorno.mensagem
+            : 'Certificados gerados com sucesso!',
+          'sucesso'
+        );
+
+        if (retorno && retorno.pastaUrl) {
+          window.open(retorno.pastaUrl, '_blank');
+        }
+
+        carregarEventosAgenda();
+      })
+      .withFailureHandler(function(erro) {
+        esconderLoading();
+        mostrarMensagem('Erro ao gerar certificados: ' + erro.message, 'erro');
+      })
+      .gerarCertificadosPorIdTurma(agendamento.idTurma);
+  }
+}
+</script>
