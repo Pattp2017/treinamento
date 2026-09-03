@@ -1,5 +1,6 @@
 (() => {
   const nomesMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const HORAS_DIA = 9; // 07:00-13:00 e 14:00-17:00
   let dataAtual = new Date();
   let eventos = [];
 
@@ -38,6 +39,34 @@
     return data.getFullYear() + '-' + String(data.getMonth()+1).padStart(2,'0') + '-' + String(data.getDate()).padStart(2,'0');
   }
 
+  function criarDataLocal(dataISO) {
+    if (!dataISO) return null;
+    const p = dataISO.split('-').map(Number);
+    return new Date(p[0], p[1] - 1, p[2]);
+  }
+
+  function proximoDiaUtil(data) {
+    while (data.getDay() === 0 || data.getDay() === 6) data.setDate(data.getDate() + 1);
+    return data;
+  }
+
+  function calcularDataFinal() {
+    const inicio = document.getElementById('agData')?.value || '';
+    const carga = Number(document.getElementById('agCarga')?.value || 0);
+    const campoFim = document.getElementById('agDataFim');
+    if (!inicio || !carga || !campoFim) return;
+
+    let data = proximoDiaUtil(criarDataLocal(inicio));
+    let diasNecessarios = Math.ceil(carga / HORAS_DIA);
+
+    for (let i = 1; i < diasNecessarios; i++) {
+      data.setDate(data.getDate() + 1);
+      proximoDiaUtil(data);
+    }
+
+    campoFim.value = iso(data);
+  }
+
   function renderStatus() {
     return configurado()
       ? '<span class="status">Supabase configurado</span>'
@@ -57,16 +86,15 @@
       <div id="modalAgenda" class="modal oculto">
         <div class="modal-box">
           <h3>Novo agendamento</h3>
+          <p style="margin-top:-6px;color:#6c757d;font-size:13px">Jornada padrão: 07:00 às 13:00 e 14:00 às 17:00.</p>
           <div class="grid-form">
             <label>Data inicial<input id="agData" type="date"></label>
-            <label>Data final<input id="agDataFim" type="date"></label>
+            <label>Data final<input id="agDataFim" type="date" readonly></label>
             <label>Empresa<input id="agEmpresa" type="text"></label>
             <label>Treinamento<input id="agTreinamento" type="text"></label>
             <label>Norma<input id="agNorma" type="text" placeholder="NR-35"></label>
             <label>Carga horária<input id="agCarga" type="number" step="0.5"></label>
             <label>Instrutor<input id="agInstrutor" type="text"></label>
-            <label>Hora início<input id="agHoraInicio" type="time"></label>
-            <label>Hora fim<input id="agHoraFim" type="time"></label>
             <label class="full">Observação<textarea id="agObservacao"></textarea></label>
           </div>
           <div class="acoes"><button class="btn secundario" id="fecharAgenda">Cancelar</button><button class="btn primario" id="salvarAgenda">Salvar</button></div>
@@ -82,6 +110,8 @@
     document.getElementById('agData').value = dataISO;
     document.getElementById('agDataFim').value = dataISO;
     document.getElementById('modalAgenda').classList.remove('oculto');
+    document.getElementById('agData').onchange = calcularDataFinal;
+    document.getElementById('agCarga').oninput = calcularDataFinal;
   }
 
   function fecharModal() {
@@ -89,6 +119,7 @@
   }
 
   async function salvar() {
+    calcularDataFinal();
     const dados = {
       codigo: 'AG' + Date.now(),
       data_inicio: document.getElementById('agData').value,
@@ -98,8 +129,8 @@
       norma: document.getElementById('agNorma').value.trim() || null,
       carga_horaria: Number(document.getElementById('agCarga').value || 0) || null,
       instrutor: document.getElementById('agInstrutor').value.trim(),
-      hora_inicio: document.getElementById('agHoraInicio').value || null,
-      hora_fim: document.getElementById('agHoraFim').value || null,
+      hora_inicio: '07:00:00',
+      hora_fim: '17:00:00',
       status: 'Agendado', etapa: 1,
       observacao: document.getElementById('agObservacao').value.trim() || null
     };
