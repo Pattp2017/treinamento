@@ -12,8 +12,10 @@
     .menu-item{padding:13px 15px;border-radius:12px;cursor:pointer;margin-bottom:8px;font-size:15px}.menu-item:hover,.menu-item.ativo{background:rgba(255,255,255,.18)}
     .sidebar-footer{margin-top:auto;font-size:12px;opacity:.85}.main{flex:1;display:flex;flex-direction:column}.topbar{height:68px;background:#fff;border-bottom:1px solid var(--borda);display:flex;align-items:center;justify-content:space-between;padding:0 28px}
     .titulo-pagina{font-size:22px;font-weight:bold;color:var(--verde-escuro)}.usuario{font-size:14px;color:var(--cinza)}.conteudo{padding:28px}.card{background:#fff;border:1px solid var(--borda);border-radius:18px;padding:22px;box-shadow:0 8px 20px rgba(0,0,0,.04);margin-bottom:22px}.card h2,.card h3{margin-top:0;color:var(--verde-escuro)}
-    .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.status{display:inline-block;padding:6px 10px;border-radius:999px;background:#eaf6ef;color:var(--verde-escuro);font-size:12px;font-weight:bold}
-    @media(max-width:900px){.app{flex-direction:column}.sidebar{width:100%}.grid-3{grid-template-columns:1fr}}
+    .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.status{display:inline-block;padding:6px 10px;border-radius:999px;background:#eaf6ef;color:var(--verde-escuro);font-size:12px;font-weight:bold}.status-alerta{background:#fff3cd;color:#7a5a00}.btn{border:1px solid var(--borda);background:#fff;border-radius:10px;padding:10px 14px;cursor:pointer}.btn.primario{background:var(--verde);color:#fff;border-color:var(--verde)}.btn.secundario{background:#f3f4f6}.acoes{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}.aviso{margin:12px 0;color:#7a5a00;font-size:13px}
+    .agenda-topo{display:flex;justify-content:space-between;align-items:center;gap:16px}.agenda-controles{display:flex;align-items:center;gap:10px}.agenda-semana,.agenda-grade{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}.agenda-semana{font-weight:700;text-align:center;margin:12px 0}.agenda-dia{min-height:120px;background:#f8fafc;border:1px solid #dbe3ef;border-radius:12px;padding:7px;cursor:pointer}.agenda-dia.vazio{background:transparent;border:none}.agenda-numero{font-weight:700;margin-bottom:5px}.agenda-card{background:#fff;border-left:4px solid var(--verde);border-radius:8px;padding:6px;margin-top:6px;font-size:12px;box-shadow:0 2px 7px rgba(0,0,0,.08)}.agenda-card strong,.agenda-card span,.agenda-card small{display:block}.agenda-card .etapa{margin-top:4px;font-size:11px;color:var(--cinza)}
+    .modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:99}.modal.oculto{display:none}.modal-box{background:#fff;width:min(700px,95vw);max-height:90vh;overflow:auto;border-radius:16px;padding:22px}.grid-form{display:grid;grid-template-columns:1fr 1fr;gap:14px}.grid-form label{font-size:13px;font-weight:bold}.grid-form input,.grid-form textarea{width:100%;margin-top:6px;padding:10px;border:1px solid var(--borda);border-radius:9px;font:inherit}.grid-form textarea{min-height:80px}.grid-form .full{grid-column:1/-1}
+    @media(max-width:900px){.app{flex-direction:column}.sidebar{width:100%}.grid-3,.grid-form{grid-template-columns:1fr}.agenda-semana,.agenda-grade{grid-template-columns:repeat(7,minmax(85px,1fr));min-width:650px}.conteudo{overflow-x:auto}.agenda-topo{align-items:flex-start;flex-direction:column}}
   </style>
 </head>
 <body>
@@ -32,7 +34,7 @@
     <main class="main">
       <header class="topbar"><div id="tituloPagina" class="titulo-pagina">Dashboard</div><div class="usuario">Patricia Pereira</div></header>
       <section id="conteudoPrincipal" class="conteudo">
-        <div class="card"><span class="status">GitHub Pages ativo</span><h2>Treinamento 2.0</h2><p>A aplicação agora está sendo executada diretamente pelo GitHub Pages, sem Google Apps Script.</p></div>
+        <div class="card"><span class="status">GitHub Pages ativo</span><h2>Treinamento 2.0</h2><p>A aplicação está sendo executada diretamente pelo GitHub Pages, sem Google Apps Script.</p></div>
         <div class="grid-3">
           <div class="card"><h3>📅 Agenda</h3><p>Agenda de treinamentos.</p></div>
           <div class="card"><h3>👥 Turmas</h3><p>Cadastro e controle de participantes.</p></div>
@@ -41,12 +43,15 @@
       </section>
     </main>
   </div>
+  <script src="supabase-config.js"></script>
+  <script src="agenda-github.js"></script>
   <script>
     const conteudoInicial=document.getElementById('conteudoPrincipal').innerHTML;
-    document.querySelectorAll('.menu-item').forEach(item=>item.addEventListener('click',()=>{
+    document.querySelectorAll('.menu-item').forEach(item=>item.addEventListener('click',async()=>{
       document.querySelectorAll('.menu-item').forEach(i=>i.classList.remove('ativo'));item.classList.add('ativo');
       const modulo=item.dataset.modulo;document.getElementById('tituloPagina').textContent=modulo==='Historico'?'Histórico':modulo;
       if(modulo==='Dashboard'){document.getElementById('conteudoPrincipal').innerHTML=conteudoInicial;return}
+      if(modulo==='Agenda' && window.renderAgendaGithub){await window.renderAgendaGithub();return}
       document.getElementById('conteudoPrincipal').innerHTML=`<div class="card"><h2>${modulo==='Historico'?'Histórico':modulo}</h2><p>Módulo em migração para GitHub Pages + Supabase.</p></div>`;
     }));
   </script>
