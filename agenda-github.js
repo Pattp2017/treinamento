@@ -158,6 +158,11 @@
   }
 
   function abrirEdicao(ev) {
+    if (String(ev.status || '').toLowerCase() === 'cancelado') {
+      alert('Agendamento cancelado não pode ser editado.');
+      return;
+    }
+
     eventoEditando = ev;
     const treinamento = localizarTreinamentoDoEvento(ev);
 
@@ -187,6 +192,63 @@
       return 'codigo=eq.' + encodeURIComponent(ev.codigo);
     }
     throw new Error('O agendamento não possui identificador para atualização.');
+  }
+
+  async function cancelarAgendamento(ev) {
+    const etapa = Number(ev.etapa || 1);
+    const status = String(ev.status || '').toLowerCase();
+
+    if (status === 'cancelado') {
+      alert('Este agendamento já está cancelado.');
+      return;
+    }
+
+    if (etapa >= 3) {
+      alert('Cancelamento bloqueado: já existem documentos gerados para este agendamento.');
+      return;
+    }
+
+    const motivo = prompt('Informe o motivo do cancelamento:');
+    if (!motivo || !motivo.trim()) return;
+    if (!confirm('Confirmar o cancelamento deste agendamento?')) return;
+
+    const observacaoAtual = String(ev.observacao || '').trim();
+    const registroCancelamento = '[CANCELADO] ' + new Date().toLocaleString('pt-BR') + ' - ' + motivo.trim();
+    const observacao = observacaoAtual ? observacaoAtual + '\n' + registroCancelamento : registroCancelamento;
+
+    try {
+      await supabaseFetch('agenda?' + filtroRegistroAgenda(ev), {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({
+          status: 'Cancelado',
+          observacao,
+          atualizado_em: new Date().toISOString()
+        })
+      });
+      await carregarEventos();
+    } catch (e) {
+      alert('Erro ao cancelar: ' + e.message);
+    }
+  }
+
+  async function excluirAgendamento(ev) {
+    const etapa = Number(ev.etapa || 1);
+    const possuiTurma = Boolean(ev.id_turma);
+
+    if (possuiTurma || etapa >= 2) {
+      alert('Exclusão bloqueada: este agendamento já possui vínculo com turma ou etapa posterior.');
+      return;
+    }
+
+    if (!confirm('Excluir definitivamente este agendamento? Esta ação não pode ser desfeita.')) return;
+
+    try {
+      await supabaseFetch('agenda?' + filtroRegistroAgenda(ev), { method: 'DELETE' });
+      await carregarEventos();
+    } catch (e) {
+      alert('Erro ao excluir: ' + e.message);
+    }
   }
 
   async function salvar() {
@@ -240,10 +302,30 @@
     }
   }
 
+  function criarBotaoCard(texto, handler, disabled = false) {
+    const botao = document.createElement('button');
+    botao.type = 'button';
+    botao.className = 'btn';
+    botao.textContent = texto;
+    botao.disabled = disabled;
+    botao.style.padding = '5px 8px';
+    botao.style.fontSize = '11px';
+    botao.style.opacity = disabled ? '.55' : '1';
+    botao.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!disabled) handler();
+    });
+    return botao;
+  }
+
   function cardEvento(ev) {
     const div = document.createElement('div');
     div.className = 'agenda-card';
-    div.title = 'Clique em Editar para alterar este agendamento';
+
+    const cancelado = String(ev.status || '').toLowerCase() === 'cancelado';
+    const etapaNumero = Number(ev.etapa || 1);
+    const possuiTurma = Boolean(ev.id_turma);
 
     const empresa = document.createElement('strong');
     empresa.textContent = ev.empresa || '';
@@ -256,30 +338,24 @@
 
     const etapa = document.createElement('div');
     etapa.className = 'etapa';
-    etapa.textContent = 'Etapa ' + (ev.etapa || 1) + '/4';
+    etapa.textContent = cancelado ? 'Cancelado' : 'Etapa ' + etapaNumero + '/4';
 
-    const botaoEditar = document.createElement('button');
-    botaoEditar.type = 'button';
-    botaoEditar.className = 'btn';
-    botaoEditar.textContent = '✏️ Editar';
-    botaoEditar.style.marginTop = '6px';
-    botaoEditar.style.padding = '5px 8px';
-    botaoEditar.style.fontSize = '11px';
-    botaoEditar.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      abrirEdicao(ev);
-    });
+    const acoes = document.createElement('div');
+    acoes.style.display = 'flex';
+    acoes.style.flexWrap = 'wrap';
+    acoes.style.gap = '4px';
+    acoes.style.marginTop = '6px';
 
-    div.addEventListener('click', function(e) {
-      e.stopPropagation();
-    });
+    acoes.appendChild(criarBotaoCard('✏️ Editar', () => abrirEdicao(ev), cancelado));
+    acoes.appendChild(criarBotaoCard('🚫 Cancelar', () => cancelarAgendamento(ev), cancelado || etapaNumero >= 3));
+    acoes.appendChild(criarBotaoCard('🗑 Excluir', () => excluirAgendamento(ev), possuiTurma || etapaNumero >= 2));
 
+    div.addEventListener('click', e => e.stopPropagation());
     div.appendChild(empresa);
     div.appendChild(treinamento);
     div.appendChild(instrutor);
     div.appendChild(etapa);
-    div.appendChild(botaoEditar);
+    div.appendChild(acoes);
 
     return div;
   }
