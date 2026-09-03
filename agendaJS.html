@@ -58,19 +58,15 @@ function preencherCamposAgenda(dados) {
   });
 
   dados.instrutores.forEach(function(nome) {
-
-    // Select do modal de cadastro
     const opt = document.createElement('option');
     opt.value = nome;
     opt.textContent = nome;
     instrutor.appendChild(opt);
 
-    // Select do filtro da agenda
     const optFiltro = document.createElement('option');
     optFiltro.value = nome;
     optFiltro.textContent = nome;
     filtroInstrutor.appendChild(optFiltro);
-
   });
 }
 
@@ -187,7 +183,14 @@ function criarCardAgenda(ev) {
 
   const botaoExcluir = document.createElement('button');
   botaoExcluir.type = 'button';
-  botaoExcluir.textContent = '🗑️ Excluir agendamento';
+
+  if (ev.idTurma) {
+    botaoExcluir.textContent = '🔒 Exclusão bloqueada';
+    botaoExcluir.disabled = true;
+    botaoExcluir.title = 'Este agendamento já possui turma vinculada.';
+  } else {
+    botaoExcluir.textContent = '🗑️ Excluir agendamento';
+  }
 
   botaoMenu.addEventListener('click', function(event) {
     event.stopPropagation();
@@ -205,6 +208,15 @@ function criarCardAgenda(ev) {
 
   botaoExcluir.addEventListener('click', function(event) {
     event.stopPropagation();
+
+    if (ev.idTurma) {
+      mostrarMensagem(
+        'Este agendamento não pode ser excluído porque já possui uma turma vinculada (' + ev.idTurma + ').',
+        'alerta'
+      );
+      return;
+    }
+
     excluirAgendamentoAgenda(event, ev.id);
   });
 
@@ -246,18 +258,21 @@ function excluirAgendamentoAgenda(event, idAgenda) {
     return;
   }
 
+  if (agendamento.idTurma) {
+    mostrarMensagem(
+      'Este agendamento não pode ser excluído porque já possui uma turma vinculada (' + agendamento.idTurma + ').',
+      'alerta'
+    );
+    return;
+  }
+
   let mensagem =
     'Deseja excluir este agendamento?\n\n' +
     'Empresa: ' + agendamento.empresa + '\n' +
     'Treinamento: ' + agendamento.treinamento + '\n' +
-    'Instrutor: ' + agendamento.instrutor;
-
-  if (agendamento.idTurma) {
-    mensagem +=
-      '\n\nA turma vinculada também será removida da planilha principal.';
-  }
-
-  mensagem += '\n\nEsta ação não poderá ser desfeita.';
+    'Instrutor: ' + agendamento.instrutor +
+    '\n\nA exclusão só será concluída se não houver turma nem participantes vinculados.' +
+    '\n\nEsta ação não poderá ser desfeita.';
 
   if (!confirm(mensagem)) {
     return;
@@ -287,9 +302,7 @@ function excluirAgendamentoAgenda(event, idAgenda) {
     .excluirAgendamentoAgendaServidor(idAgenda);
 }
 
-
 function obterClasseInstrutorAgenda(instrutor) {
-
   instrutor = String(instrutor || '').toLowerCase();
 
   if (instrutor.includes('raphael')) {
@@ -377,7 +390,6 @@ function limparModalAgenda() {
   document.getElementById('agendaInstrutor').value = '';
   document.getElementById('agendaObservacao').value = '';
 }
-
 
 function adicionarDiasUteisAgenda(dataISO, diasAdicionar) {
   let data = criarDataLocalAgenda(dataISO);
@@ -487,7 +499,6 @@ function executarAcaoEtapaAgenda(event, acao, idAgenda) {
   }
 
   if (acao === 'lista') {
-
     if (!agendamento.idTurma) {
       mostrarMensagem('Primeiro a turma precisa estar cadastrada.', 'alerta');
       return;
@@ -517,7 +528,6 @@ function executarAcaoEtapaAgenda(event, acao, idAgenda) {
   }
 }
 
-
 function preencherTurmaAPartirDaAgenda() {
   const texto = sessionStorage.getItem('agendaParaTurma');
 
@@ -542,6 +552,5 @@ function converterISOParaBRAgendaTurma(dataISO) {
   const partes = dataISO.split('-');
   return partes[2] + '/' + partes[1] + '/' + partes[0];
 }
-
 
 </script>
