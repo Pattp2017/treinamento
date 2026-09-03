@@ -62,6 +62,7 @@ function salvarTurmaSeguro(dados) {
 
     if (idAgenda) {
       vincularIdTurmaNaAgenda_(idAgenda, idTurma);
+      atualizarEtapaAgendaPorIdTurma(idTurma, 2);
     } else {
       idAgenda = criarAgendamentoAPartirDaTurma_(dados, idTurma);
     }
