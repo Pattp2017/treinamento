@@ -156,23 +156,24 @@
     const linhas=document.getElementById('turImportacao').value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
     if(!linhas.length){alert('Cole pelo menos um participante para importar.');return;}
     botao.disabled=true;botao.textContent='Importando...';
-    let novos=0,existentes=0,divergencias=0,ignorados=0,erros=[];
+    let novos=0,existentes=0,divergencias=0,jaNaTurma=0,erros=[];
     for(let n=0;n<linhas.length;n++){
       const partes=linhas[n].split(/[;\t,]/);
-      if(partes.length<2){ignorados++;continue;}
+      if(partes.length<2){erros.push('Linha '+(n+1)+': formato inválido');continue;}
       const nome=normalizarNome(partes[0]);const cpf=limparCPF(partes[1]);
       try{
         if(!validarCPF(cpf))throw new Error('CPF inválido');
-        if(participantes.some(p=>limparCPF(p.cpf)===cpf)){ignorados++;continue;}
         const info=await localizarOuCriarPessoa(nome,cpf);
-        participantes.push({nome,cpf:formatarCPF(cpf),pessoaId:info.pessoaId,nomeCadastro:info.nomeCadastro,divergente:info.divergente});
-        if(info.existente)existentes++;else novos++;
+        if(info.existente)existentes++; else novos++;
         if(info.divergente)divergencias++;
+        const indiceExistente=participantes.findIndex(p=>limparCPF(p.cpf)===cpf);
+        const novoRegistro={nome,cpf:formatarCPF(cpf),pessoaId:info.pessoaId,nomeCadastro:info.nomeCadastro,divergente:info.divergente};
+        if(indiceExistente>=0){participantes[indiceExistente]=novoRegistro;jaNaTurma++;}else{participantes.push(novoRegistro);}
       }catch(e){erros.push('Linha '+(n+1)+': '+e.message);}
     }
     atualizarTabela();
     document.getElementById('turImportacao').value='';
-    resumo.textContent=`Importação concluída: ${novos} novo(s) cadastro(s), ${existentes} já existente(s), ${divergencias} divergência(s), ${ignorados} ignorado(s).`+(erros.length?' Erros: '+erros.join(' | '):'');
+    resumo.textContent=`Importação concluída: ${novos} novo(s) cadastro(s), ${existentes} já existente(s), ${divergencias} divergência(s), ${jaNaTurma} já estava(m) na turma.`+(erros.length?' Erros: '+erros.join(' | '):'');
     botao.disabled=false;botao.textContent='📥 Importar participantes';
   }
 
