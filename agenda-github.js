@@ -1,9 +1,10 @@
 (() => {
   const nomesMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  const HORAS_DIA = 8; // 08:00-13:00 e 14:00-17:00
+  const HORAS_DIA = 8;
   let dataAtual = new Date();
   let eventos = [];
   let treinamentos = [];
+  let eventoEditando = null;
 
   function cfg() { return window.SUPABASE_CONFIG || {}; }
   function configurado() { return Boolean(cfg().url && cfg().anonKey); }
@@ -27,14 +28,12 @@
   }
 
   async function carregarEventos() {
-    eventos = await supabaseFetch('agenda?select=*&order=data_inicio.asc,codigo.asc');
+    eventos = await supabaseFetch('agenda?select=*&order=data_inicio.asc,codigo.asc') || [];
     desenhar();
   }
 
   async function carregarTreinamentos() {
-    treinamentos = await supabaseFetch(
-      'treinamentos?select=id,nome,norma,carga_horaria_padrao,validade_meses&ativo=eq.true&order=nome.asc'
-    ) || [];
+    treinamentos = await supabaseFetch('treinamentos?select=id,nome,norma,carga_horaria_padrao,validade_meses&ativo=eq.true&order=nome.asc') || [];
   }
 
   function iso(data) {
@@ -70,10 +69,8 @@
   }
 
   function preencherDadosTreinamento() {
-    const select = document.getElementById('agTreinamento');
-    const id = select?.value || '';
+    const id = document.getElementById('agTreinamento')?.value || '';
     const treinamento = treinamentos.find(t => String(t.id) === String(id));
-
     document.getElementById('agNorma').value = treinamento?.norma || '';
     document.getElementById('agCarga').value = treinamento?.carga_horaria_padrao ?? '';
     calcularDataFinal();
@@ -82,7 +79,6 @@
   function preencherSelectTreinamentos() {
     const select = document.getElementById('agTreinamento');
     if (!select) return;
-
     select.innerHTML = '<option value="">Selecione...</option>';
     treinamentos.forEach(t => {
       const option = document.createElement('option');
@@ -116,7 +112,7 @@
 
       <div id="modalAgenda" class="modal oculto">
         <div class="modal-box">
-          <h3>Novo agendamento</h3>
+          <h3 id="tituloModalAgenda">Novo agendamento</h3>
           <p style="margin-top:-6px;color:#6c757d;font-size:13px">Jornada padrão: 08:00 às 13:00 e 14:00 às 17:00 (8 horas/dia).</p>
           <div class="grid-form">
             <label>Data inicial<input id="agData" type="date"></label>
@@ -136,25 +132,40 @@
       </div>`;
   }
 
-  function abrirModal(dataISO) {
-    if (!configurado()) {
-      document.getElementById('avisoAgenda').textContent = 'Supabase não configurado.';
-      return;
-    }
+  function limparModal() {
+    eventoEditando = null;
+    document.getElementById('tituloModalAgenda').textContent = 'Novo agendamento';
+    document.getElementById('salvarAgenda').textContent = 'Salvar';
+    ['agEmpresa','agNorma','agCarga','agInstrutor','agObservacao'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('agTreinamento').value = '';
+  }
 
+  function abrirModal(dataISO) {
+    if (!configurado()) return;
+    limparModal();
     document.getElementById('agData').value = dataISO;
     document.getElementById('agDataFim').value = dataISO;
-    document.getElementById('agTreinamento').value = '';
-    document.getElementById('agNorma').value = '';
-    document.getElementById('agCarga').value = '';
     document.getElementById('modalAgenda').classList.remove('oculto');
+  }
 
-    document.getElementById('agData').onchange = calcularDataFinal;
-    document.getElementById('agTreinamento').onchange = preencherDadosTreinamento;
+  function abrirEdicao(ev) {
+    eventoEditando = ev;
+    document.getElementById('tituloModalAgenda').textContent = 'Editar agendamento';
+    document.getElementById('salvarAgenda').textContent = 'Atualizar';
+    document.getElementById('agData').value = ev.data_inicio || '';
+    document.getElementById('agDataFim').value = ev.data_fim || '';
+    document.getElementById('agEmpresa').value = ev.empresa || '';
+    document.getElementById('agTreinamento').value = ev.treinamento_id || '';
+    document.getElementById('agNorma').value = ev.norma || '';
+    document.getElementById('agCarga').value = ev.carga_horaria ?? '';
+    document.getElementById('agInstrutor').value = ev.instrutor || '';
+    document.getElementById('agObservacao').value = ev.observacao || '';
+    document.getElementById('modalAgenda').classList.remove('oculto');
   }
 
   function fecharModal() {
     document.getElementById('modalAgenda').classList.add('oculto');
+    eventoEditando = null;
   }
 
   async function salvar() {
@@ -164,7 +175,6 @@
     const treinamento = treinamentos.find(t => String(t.id) === String(treinamentoId));
 
     const dados = {
-      codigo: 'AG' + Date.now(),
       data_inicio: document.getElementById('agData').value,
       data_fim: document.getElementById('agDataFim').value,
       empresa: document.getElementById('agEmpresa').value.trim(),
@@ -175,9 +185,8 @@
       instrutor: document.getElementById('agInstrutor').value.trim(),
       hora_inicio: '08:00:00',
       hora_fim: '17:00:00',
-      status: 'Agendado',
-      etapa: 1,
-      observacao: document.getElementById('agObservacao').value.trim() || null
+      observacao: document.getElementById('agObservacao').value.trim() || null,
+      atualizado_em: new Date().toISOString()
     };
 
     if (!dados.data_inicio || !dados.data_fim || !dados.empresa || !dados.treinamento_id || !dados.instrutor) {
@@ -186,11 +195,23 @@
     }
 
     try {
-      await supabaseFetch('agenda', {
-        method: 'POST',
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify(dados)
-      });
+      if (eventoEditando) {
+        await supabaseFetch('agenda?id=eq.' + encodeURIComponent(eventoEditando.id), {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify(dados)
+        });
+      } else {
+        dados.codigo = 'AG' + Date.now();
+        dados.status = 'Agendado';
+        dados.etapa = 1;
+        await supabaseFetch('agenda', {
+          method: 'POST',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify(dados)
+        });
+      }
+
       fecharModal();
       await carregarEventos();
     } catch (e) {
@@ -201,14 +222,23 @@
   function cardEvento(ev) {
     const div = document.createElement('div');
     div.className = 'agenda-card';
-    div.innerHTML = `<strong>${ev.empresa || ''}</strong><span>${ev.treinamento || ''}</span><small>${ev.instrutor || ''}</small><div class="etapa">Etapa ${ev.etapa || 1}/4</div>`;
+    div.title = 'Clique para editar';
+    div.innerHTML = `
+      <strong>${ev.empresa || ''}</strong>
+      <span>${ev.treinamento || ''}</span>
+      <small>${ev.instrutor || ''}</small>
+      <div class="etapa">Etapa ${ev.etapa || 1}/4</div>
+      <div style="margin-top:6px;font-size:11px;font-weight:bold">✏️ Editar</div>`;
+    div.onclick = (e) => {
+      e.stopPropagation();
+      abrirEdicao(ev);
+    };
     return div;
   }
 
   function desenhar() {
     const grade = document.getElementById('gradeAgenda');
     if (!grade) return;
-
     grade.innerHTML = '';
     document.getElementById('mesAno').textContent = nomesMeses[dataAtual.getMonth()] + ' / ' + dataAtual.getFullYear();
 
@@ -229,11 +259,7 @@
 
       eventos
         .filter(ev => ev.data_inicio <= dataISO && ev.data_fim >= dataISO)
-        .forEach(ev => {
-          const c = cardEvento(ev);
-          c.onclick = e => e.stopPropagation();
-          cel.appendChild(c);
-        });
+        .forEach(ev => cel.appendChild(cardEvento(ev)));
 
       grade.appendChild(cel);
     }
@@ -247,6 +273,8 @@
     document.getElementById('mesSeguinte').onclick = () => { dataAtual.setMonth(dataAtual.getMonth()+1); desenhar(); };
     document.getElementById('fecharAgenda').onclick = fecharModal;
     document.getElementById('salvarAgenda').onclick = salvar;
+    document.getElementById('agData').onchange = calcularDataFinal;
+    document.getElementById('agTreinamento').onchange = preencherDadosTreinamento;
 
     desenhar();
 
