@@ -1,0 +1,111 @@
+<script>
+(function() {
+  const criarCardAgendaOriginal = criarCardAgenda;
+
+  criarCardAgenda = function(ev) {
+    const card = criarCardAgendaOriginal(ev);
+    const menu = card.querySelector('.agenda-menu-acoes');
+
+    if (!menu) return card;
+
+    const status = String(ev.status || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    const etapa = Number(ev.etapa || 1);
+    const cancelado = status === 'cancelado' || status === 'cancelada';
+
+    const botaoCancelar = document.createElement('button');
+    botaoCancelar.type = 'button';
+
+    if (cancelado) {
+      botaoCancelar.textContent = '🚫 Agendamento cancelado';
+      botaoCancelar.disabled = true;
+      botaoCancelar.title = 'Este agendamento já está cancelado.';
+    } else if (etapa >= 3) {
+      botaoCancelar.textContent = '🔒 Cancelamento bloqueado';
+      botaoCancelar.disabled = true;
+      botaoCancelar.title = 'Não é possível cancelar após a geração da lista de presença.';
+    } else {
+      botaoCancelar.textContent = '🚫 Cancelar agendamento';
+      botaoCancelar.addEventListener('click', function(event) {
+        event.stopPropagation();
+        cancelarAgendamentoAgendaTela(ev);
+      });
+    }
+
+    menu.appendChild(botaoCancelar);
+
+    if (cancelado) {
+      card.style.opacity = '0.65';
+      card.title = 'Agendamento cancelado';
+    }
+
+    return card;
+  };
+})();
+
+function cancelarAgendamentoAgendaTela(agendamento) {
+  if (!agendamento || !agendamento.id) {
+    mostrarMensagem('Agendamento não encontrado.', 'erro');
+    return;
+  }
+
+  const etapa = Number(agendamento.etapa || 1);
+
+  if (etapa >= 3) {
+    mostrarMensagem(
+      'O cancelamento está bloqueado porque a lista de presença ou os certificados já foram gerados.',
+      'alerta'
+    );
+    return;
+  }
+
+  const motivo = prompt(
+    'Informe o motivo do cancelamento:\n\n' +
+    'Empresa: ' + (agendamento.empresa || '') + '\n' +
+    'Treinamento: ' + (agendamento.treinamento || '')
+  );
+
+  if (motivo === null) return;
+
+  if (!String(motivo).trim()) {
+    mostrarMensagem('Informe o motivo do cancelamento.', 'alerta');
+    return;
+  }
+
+  const confirmar = confirm(
+    'Confirma o cancelamento deste agendamento?\n\n' +
+    'Os registros existentes serão preservados para rastreabilidade.'
+  );
+
+  if (!confirmar) return;
+
+  mostrarLoading();
+
+  google.script.run
+    .withSuccessHandler(function(retorno) {
+      esconderLoading();
+      mostrarMensagem(
+        retorno && retorno.mensagem
+          ? retorno.mensagem
+          : 'Agendamento cancelado com sucesso.',
+        'sucesso'
+      );
+      carregarEventosAgenda();
+    })
+    .withFailureHandler(function(erro) {
+      esconderLoading();
+      mostrarMensagem(
+        'Erro ao cancelar agendamento: ' + erro.message,
+        'erro'
+      );
+    })
+    .cancelarAgendamentoAgendaServidor(
+      agendamento.id,
+      String(motivo).trim()
+    );
+}
+</script>
