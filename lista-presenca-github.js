@@ -18,10 +18,23 @@
   function fecharModal(){document.getElementById('modalListaPresenca')?.remove();}
   function conteudoHtml(texto){
     const bruto=String(texto||'Conteúdo programático não informado.');
-    const escapado=esc(bruto);
-    return escapado
-      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-      .replace(/\r?\n/g,'<br>');
+    const linhas=bruto.split(/\r?\n/);
+    let iniciouTopicos=false;
+    return linhas.map(linha=>{
+      const t=String(linha||'').trim();
+      if(!t)return '<div style="height:5px"></div>';
+      const titulo=t.match(/^\*\*(.+?)\*\*$/);
+      if(titulo){
+        iniciouTopicos=true;
+        return `<div style="font-weight:700;margin:6px 0 3px">${esc(titulo[1])}</div>`;
+      }
+      if(!iniciouTopicos){
+        return `<div style="margin-bottom:5px">${esc(t)}</div>`;
+      }
+      const limpo=t.replace(/^[▫•▪◦\-]\s*/, '');
+      const formatado=esc(limpo).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+      return `<div style="padding-left:12px;text-indent:-8px;margin:1px 0">• ${formatado}</div>`;
+    }).join('');
   }
   async function carregarIdentidade(){if(window.TREINAMENTO_IDENTIDADE_EMPRESA)return window.TREINAMENTO_IDENTIDADE_EMPRESA;const rows=await supabaseFetch('configuracao_empresa?ativo=eq.true&select=*&limit=1');return rows?.[0]||{};}
   function cabecalhoDocumento(turma,identidade){const logo=identidade.logo_url?`<img src="${esc(identidade.logo_url)}" class="logo-img">`:`<div class="logo-fallback">${esc(identidade.nome_exibicao||'Empresa')}</div>`;return `<table class="cabecalho-doc"><tr><td class="logo-doc" rowspan="2">${logo}</td><td class="titulo-doc" colspan="5">Relatório de Treinamento</td></tr><tr><td><b>Código ▼</b><span>Form: Lista_Presença</span></td><td><b>Impresso em ▼</b><span>${hojeBr()}</span></td><td><b>Elaborado por ▼</b><span>${esc(identidade.nome_exibicao||'')}</span></td><td><b>Aprovado por ▼</b><span></span></td><td><b>Página ▼</b><span class="pagina-numero"></span></td></tr></table>`;}
