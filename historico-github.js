@@ -14,7 +14,6 @@
   function cpfNum(v){return String(v||'').replace(/\D/g,'');}
   function cpfMask(v){const d=cpfNum(v);return d.length===11?d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4'):v||'';}
   function dataCurta(v){if(!v)return'';const d=new Date(v);return isNaN(d)?String(v):d.toLocaleDateString('pt-BR');}
-  function dataHora(v){if(!v)return'';const d=new Date(v);return isNaN(d)?String(v):d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
   function statusCor(s){const n=norm(s);if(n==='gerado'||n==='gerada')return'#18794e';if(n==='reemitido')return'#a15c00';if(n==='cancelado')return'#b42318';return'#667085';}
 
   let historico=[];
@@ -89,26 +88,60 @@
     }).sort((a,b)=>new Date(b.data||0)-new Date(a.data||0));
   }
 
-  function blocoArquivo(x){if(x?.arquivo_url)return `<button class="btn btnHistAbrir" data-url="${esc(x.arquivo_url)}" style="padding:6px 9px">📂 Abrir</button>`;return `<span style="color:#8a9299;font-size:12px">${x?.nome_arquivo?'Arquivo não vinculado':'Não armazenado'}</span>`;}
-
-  function filtrar(){renderArvore(montarGrupos(filtrosAtuais()),filtrosAtuais());}
+  function filtrar(){const f=filtrosAtuais();renderArvore(montarGrupos(f),f);}
 
   function renderArvore(grupos,f){
     const area=document.getElementById('histArvore');
     if(!grupos.length){area.innerHTML='<div style="padding:18px;text-align:center;border:1px dashed #d7dfdc;border-radius:12px;color:#6c757d">Nenhuma turma encontrada para os filtros selecionados.</div>';document.getElementById('histMsg').textContent='Nenhum registro encontrado.';return;}
+
     area.innerHTML=grupos.map((g,idx)=>{
-      const t=g.turma,gerados=g.certs.filter(x=>['gerado','reemitido'].includes(norm(x.status))).length,cab=[];
+      const t=g.turma;
+      const gerados=g.certs.filter(x=>['gerado','reemitido'].includes(norm(x.status))).length;
+      const cab=[];
       if(!f.treinamento&&t.treinamento)cab.push(`<strong>${esc(t.treinamento)}</strong>`);
       if(!f.empresa&&t.empresa)cab.push(esc(t.empresa));
       cab.push(`Turma ${esc(t.codigo||'—')}`);
       if(g.data)cab.push(dataCurta(g.data));
-      const resumo=f.tipo===norm('Lista de Presença')?g.lista.status:`${gerados} de ${g.certs.length} certificado(s)`;
-      const blocoLista=f.tipo===norm('Certificado')?'':`<div style="display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #eef2f0"><div><strong>📋 Lista de presença</strong><div style="font-size:12px;color:${statusCor(g.lista.status)};margin-top:3px;font-weight:600">${esc(g.lista.status)}${g.lista.criado_em?' • '+esc(dataHora(g.lista.criado_em)):''}</div></div><div>${blocoArquivo(g.lista)}</div></div>`;
-      const blocoCert=f.tipo===norm('Lista de Presença')?'':`<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><strong>📜 Certificados</strong><span style="font-size:12px;color:#6c757d">${gerados} de ${g.certs.length} gerado(s)</span></div><div style="margin-top:7px">${g.certs.map(x=>`<div style="display:grid;grid-template-columns:minmax(180px,1fr) 130px auto;gap:10px;align-items:center;padding:7px 0;border-top:1px solid #f0f2f1"><div>${esc(x.participante)}<div style="font-size:11px;color:#7b8580">${esc(cpfMask(x.cpf))}</div></div><div style="font-size:12px;color:${statusCor(x.status)};font-weight:600">${esc(x.status)}</div><div>${blocoArquivo(x)}</div></div>`).join('')}</div></div>`;
-      return `<div class="hist-grupo" style="border:1px solid #dde6e3;border-radius:12px;margin-bottom:10px;overflow:hidden;background:#fff"><button class="hist-toggle" data-alvo="histDet${idx}" style="width:100%;border:0;background:#f8faf9;padding:13px 14px;text-align:left;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px"><span><span class="hist-sinal" style="display:inline-block;width:22px;font-weight:bold">+</span>${cab.join(' <span style="color:#a0a8a4">•</span> ')}</span><span style="font-size:12px;color:#667085;white-space:nowrap">${esc(resumo)}</span></button><div id="histDet${idx}" style="display:none;padding:12px 14px 14px">${blocoLista}${blocoCert}</div></div>`;
+
+      const blocoLista=f.tipo===norm('Certificado')?'':`
+        <div style="display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid #e9eeec">
+          <div style="font-weight:700">📋 Lista de presença</div>
+          <div style="font-size:12px;color:${statusCor(g.lista.status)};font-weight:700">${esc(g.lista.status)}</div>
+        </div>`;
+
+      const linhasCert=g.certs.map(x=>`
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px;align-items:center;gap:12px;padding:8px 4px;border-top:1px solid #edf1ef">
+          <div style="min-width:0;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+            <span style="font-size:13px;color:#1f2937">${esc(x.participante)}</span>
+            <span style="font-size:10px;color:#7b8580">${esc(cpfMask(x.cpf))}</span>
+          </div>
+          <div style="font-size:11px;text-align:right;color:${statusCor(x.status)};font-weight:700">${esc(x.status)}</div>
+        </div>`).join('');
+
+      const blocoCert=f.tipo===norm('Lista de Presença')?'':`
+        <div style="padding-top:10px">
+          <div style="display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;padding:0 4px 6px">
+            <div style="font-weight:700">📜 Certificados</div>
+            <div style="font-size:11px;color:#6c757d">${gerados} de ${g.certs.length} gerado(s)</div>
+          </div>
+          ${linhasCert||'<div style="padding:8px 4px;color:#8a9299;font-size:12px">Nenhum participante.</div>'}
+        </div>`;
+
+      const resumo=f.tipo===norm('Lista de Presença')?g.lista.status:`${gerados} de ${g.certs.length} gerado(s)`;
+      return `<div class="hist-grupo" style="border-top:2px solid #1f2937;margin-bottom:12px;background:#fff">
+        <button class="hist-toggle" data-alvo="histDet${idx}" style="width:100%;border:0;background:#fff;padding:10px 4px;text-align:left;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span><span class="hist-sinal" style="display:inline-block;width:18px;font-weight:bold">+</span>${cab.join(' <span style="color:#a0a8a4">•</span> ')}</span>
+          <span style="font-size:11px;color:#667085;white-space:nowrap">${esc(resumo)}</span>
+        </button>
+        <div id="histDet${idx}" style="display:none;padding:0 4px 8px">${blocoLista}${blocoCert}</div>
+      </div>`;
     }).join('');
-    area.querySelectorAll('.hist-toggle').forEach(btn=>btn.onclick=()=>{const d=document.getElementById(btn.dataset.alvo),s=btn.querySelector('.hist-sinal'),abrir=d.style.display==='none';d.style.display=abrir?'block':'none';s.textContent=abrir?'−':'+';});
-    area.querySelectorAll('.btnHistAbrir').forEach(b=>b.onclick=e=>{e.stopPropagation();window.open(b.dataset.url,'_blank');});
+
+    area.querySelectorAll('.hist-toggle').forEach(btn=>btn.onclick=()=>{
+      const d=document.getElementById(btn.dataset.alvo),s=btn.querySelector('.hist-sinal'),abrir=d.style.display==='none';
+      d.style.display=abrir?'block':'none';
+      s.textContent=abrir?'−':'+';
+    });
     document.getElementById('histMsg').textContent=grupos.length+' turma(s) encontrada(s).';
   }
 
