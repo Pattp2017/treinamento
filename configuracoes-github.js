@@ -29,14 +29,14 @@
   let assinaturaPreviewUrl='';
 
   async function carregar(){
-    const rows=await supabaseFetch('configuracao_empresa?ativo=eq.true&select=*&limit=1');
+    const rows=await supabaseFetch('treinamento_configuracao_empresa?ativo=eq.true&select=*&limit=1');
     registro=rows?.[0]||null;
     return registro;
   }
 
   async function carregarAssinaturaPreview(){
     try{
-      const inst=await supabaseFetch('instrutores?ativo=eq.true&assinatura_path=not.is.null&select=assinatura_path&limit=1');
+      const inst=await supabaseFetch('treinamento_instrutores?ativo=eq.true&assinatura_path=not.is.null&select=assinatura_path&limit=1');
       assinaturaPreviewUrl=urlImagem(inst?.[0]?.assinatura_path||'');
     }catch(e){ assinaturaPreviewUrl=''; }
   }
@@ -168,9 +168,9 @@
     try{
       let retorno;
       if(registro?.id){
-        retorno=await supabaseFetch('configuracao_empresa?id=eq.'+encodeURIComponent(registro.id),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(dados)});
+        retorno=await supabaseFetch('treinamento_configuracao_empresa?id=eq.'+encodeURIComponent(registro.id),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(dados)});
       }else{
-        retorno=await supabaseFetch('configuracao_empresa',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(dados)});
+        retorno=await supabaseFetch('treinamento_configuracao_empresa',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(dados)});
       }
       registro=retorno?.[0]||registro||dados;
       document.getElementById('avisoConfiguracao').textContent='Configurações salvas com sucesso.';
