@@ -39,5 +39,6 @@
     document.getElementById('gerarCertificadosLote').onclick=()=>{const selecionados=checks().filter(c=>c.checked).map(c=>participantes[Number(c.dataset.i)]);if(!selecionados.length)return alert('Selecione pelo menos um participante.');abrirDocumento(htmlLote(turma,selecionados,identidade));};
     document.getElementById('concluirCertificados').onclick=async()=>{try{const filtro=ev.id?'id=eq.'+encodeURIComponent(ev.id):'codigo=eq.'+encodeURIComponent(ev.codigo);await supabaseFetch('treinamento_agenda?'+filtro,{method:'PATCH',body:JSON.stringify({etapa:4,status:'Concluído',atualizado_em:new Date().toISOString()})});fechar();alert('Certificados concluídos. A Agenda avançou para a etapa 4.');if(window.renderAgendaGithub)await window.renderAgendaGithub();}catch(e){alert('Erro ao concluir certificados: '+e.message);}};
   }
+  window.obterCertificadosGithub=async function(ev){const d=await carregar(ev);return{...d,documentos:d.participantes.map(p=>({nome:p.nome,html:htmlCertificado(d.turma,p,d.identidade)}))};};
   window.abrirCertificadosGithub=async function(ev){try{const d=await carregar(ev);render(ev,d.turma,d.participantes,d.identidade);}catch(e){alert('Erro ao abrir certificados: '+e.message);}};
 })();
