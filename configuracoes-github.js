@@ -26,11 +26,18 @@
   }
 
   let registro=null;
+  let empresas=[];
+  let empresaSelecionada=null;
   let assinaturaPreviewUrl='';
 
-  async function carregar(){
-    const rows=await supabaseFetch('treinamento_configuracao_empresa?ativo=eq.true&select=*&limit=1');
+  async function carregar(empresaId=null){
+    empresas=await supabaseFetch('empresas?ativo=eq.true&select=id,nome,telefone,email,endereco&order=nome.asc')||[];
+    let rows=[];
+    if(empresaId) rows=await supabaseFetch('empresa_configuracao?empresa_id=eq.'+encodeURIComponent(empresaId)+'&select=*&limit=1');
+    else rows=await supabaseFetch('empresa_configuracao?emissora_ativa=eq.true&select=*&limit=1');
     registro=rows?.[0]||null;
+    empresaSelecionada=empresas.find(e=>String(e.id)===String(registro?.empresa_id||empresaId))||null;
+    if(registro&&empresaSelecionada) registro={...registro,telefone:empresaSelecionada.telefone||'',email:empresaSelecionada.email||'',endereco:empresaSelecionada.endereco||''};
     return registro;
   }
 
@@ -46,6 +53,7 @@
   }
 
   function html(c){
+    const opcoesEmpresas=empresas.map(e=>`<option value="${esc(e.id)}" ${String(e.id)===String(c?.empresa_id||'')?'selected':''}>${esc(e.nome)}</option>`).join('');
     const modelo=c?.certificado_modelo||'padrao';
     const tam=Number(c?.certificado_assinatura_tamanho||100);
     const op=Number(c?.certificado_assinatura_opacidade||100);
@@ -55,13 +63,13 @@
         <h2 style="margin-top:12px">⚙️ Identidade da Empresa</h2>
         <p style="color:#6c757d">Estes dados serão usados nos documentos emitidos pelo sistema. A empresa do sistema é diferente do cliente/fazenda atendido.</p>
         <div class="grid-form">
+          <label class="full">Empresa emissora<select id="cfgEmpresa"><option value="">Selecione...</option>${opcoesEmpresas}</select></label>
           ${campo('cfgNome','Nome exibido *',c?.nome_exibicao||'')}
           ${campo('cfgSubtitulo','Subtítulo',c?.subtitulo||'')}
           ${campo('cfgTelefone','Telefone',c?.telefone||'')}
-          ${campo('cfgWhatsapp','WhatsApp',c?.whatsapp||'')}
-          ${campo('cfgEmail','E-mail',c?.email||'','email')}
+                    ${campo('cfgEmail','E-mail',c?.email||'','email')}
           ${campo('cfgCor','Cor principal',c?.cor_principal||'#0b8f43','color')}
-          <label class="full">Endereço<input id="cfgEndereco" value="${esc(c?.endereco||'')}"></label>
+          <label class="full">Endereço<input id="cfgEndereco" readonly value="${esc(c?.endereco||'')}"></label>
           <label class="full">Logo - URL pública<input id="cfgLogo" type="url" placeholder="https://..." value="${esc(c?.logo_url||'')}"></label>
           <label class="full">Imagem de rodapé - URL pública<input id="cfgRodape" type="url" placeholder="https://..." value="${esc(c?.rodape_url||'')}"><small style="display:block;margin-top:5px;color:#6c757d;font-weight:normal">Use uma imagem horizontal própria para o rodapé dos documentos.</small></label>
         </div>
@@ -144,15 +152,14 @@
   }
 
   async function salvar(){
+    const empresaId=document.getElementById('cfgEmpresa').value;
+    if(!empresaId){ alert('Selecione a empresa emissora.'); return; }
     const nome=document.getElementById('cfgNome').value.trim();
     if(!nome){ alert('Informe o nome exibido da empresa.'); return; }
     const dados={
+      empresa_id:empresaId,
       nome_exibicao:nome,
       subtitulo:document.getElementById('cfgSubtitulo').value.trim()||null,
-      telefone:document.getElementById('cfgTelefone').value.trim()||null,
-      whatsapp:document.getElementById('cfgWhatsapp').value.trim()||null,
-      email:document.getElementById('cfgEmail').value.trim()||null,
-      endereco:document.getElementById('cfgEndereco').value.trim()||null,
       logo_url:document.getElementById('cfgLogo').value.trim()||null,
       rodape_url:document.getElementById('cfgRodape').value.trim()||null,
       cor_principal:document.getElementById('cfgCor').value||'#0b8f43',
@@ -162,15 +169,16 @@
       certificado_verso_url:document.getElementById('cfgCertVerso')?.value.trim()||null,
       certificado_assinatura_tamanho:Number(document.getElementById('cfgAssTam').value||100),
       certificado_assinatura_opacidade:Number(document.getElementById('cfgAssOp').value||100),
-      ativo:true,
+      emissora_ativa:true,
       atualizado_em:new Date().toISOString()
     };
     try{
       let retorno;
+      await supabaseFetch('empresa_configuracao?emissora_ativa=eq.true&empresa_id=neq.'+encodeURIComponent(empresaId),{method:'PATCH',body:JSON.stringify({emissora_ativa:false,atualizado_em:new Date().toISOString()})});
       if(registro?.id){
-        retorno=await supabaseFetch('treinamento_configuracao_empresa?id=eq.'+encodeURIComponent(registro.id),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(dados)});
+        retorno=await supabaseFetch('empresa_configuracao?id=eq.'+encodeURIComponent(registro.id),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(dados)});
       }else{
-        retorno=await supabaseFetch('treinamento_configuracao_empresa',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(dados)});
+        retorno=await supabaseFetch('empresa_configuracao',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(dados)});
       }
       registro=retorno?.[0]||registro||dados;
       document.getElementById('avisoConfiguracao').textContent='Configurações salvas com sucesso.';
@@ -195,6 +203,12 @@
       const c=await carregar();
       await carregarAssinaturaPreview();
       area.innerHTML=html(c);
+      document.getElementById('cfgEmpresa').onchange=async e=>{
+        const id=e.target.value;if(!id)return;
+        const conf=await carregar(id);
+        if(!conf){const emp=empresas.find(x=>String(x.id)===String(id));registro=null;empresaSelecionada=emp||null;}
+        await window.renderConfiguracoesGithub();
+      };
       ['cfgNome','cfgSubtitulo','cfgLogo','cfgRodape'].forEach(id=>document.getElementById(id).addEventListener('input',atualizarPreview));
       document.getElementById('cfgCertModelo').onchange=atualizarCamposCertificado;
       document.getElementById('cfgAssTam').oninput=atualizarPreviewAssinatura;
