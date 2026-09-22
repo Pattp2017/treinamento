@@ -14,25 +14,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Numerar participantes e alinhar nomes
+      - name: Corrigir quebra antes do cabecalho da pagina seguinte
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('lista-presenca-github.js')
           s=p.read_text(encoding='utf-8')
 
-          # Numera de forma sequencial usando a posicao original da turma.
-          s=s.replace("function tabelaParticipantes(participantes,comCabecalho=true){const linhas=participantes.map(p=>`<tr><td>${esc(p.nome)}</td><td>${esc(formatarCPF(p.cpf))}</td><td class=\"assinatura\"></td></tr>`).join('');return `<table class=\"participantes\">${comCabecalho?'<thead><tr class=\"faixa\"><th>NOME</th><th>CPF</th><th>ASSINATURA</th></tr></thead>':''}<tbody>${linhas}</tbody></table>`;}", "function tabelaParticipantes(participantes,comCabecalho=true){const linhas=participantes.map((p,i)=>`<tr><td class=\"numero-participante\">${esc(p.numero??(i+1))}</td><td class=\"nome-participante\">${esc(p.nome)}</td><td>${esc(formatarCPF(p.cpf))}</td><td class=\"assinatura\"></td></tr>`).join('');return `<table class=\"participantes\">${comCabecalho?'<thead><tr class=\"faixa\"><th>Nº</th><th>NOME</th><th>CPF</th><th>ASSINATURA</th></tr></thead>':''}<tbody>${linhas}</tbody></table>`;}")
+          # A pagina tem area util de 23 cm, iniciando em 3,5 cm e terminando em 26,5 cm.
+          # O erro observado era permitir linhas demais na primeira pagina; elas vazavam
+          # fisicamente para a folha seguinte e ficavam atras do cabecalho.
+          old="function capacidadePrimeiraPagina(turma){const texto=String(turma.conteudo_programatico||turma.topicos_realizados||'');const linhas=texto.split(/\\r?\\n/).length;const caracteres=texto.length;const linhasVisuais=Math.max(linhas,Math.ceil(caracteres/105));if(linhasVisuais>=34)return 5;if(linhasVisuais>=30)return 6;if(linhasVisuais>=26)return 7;if(linhasVisuais>=22)return 8;if(linhasVisuais>=18)return 9;if(linhasVisuais>=14)return 10;return 11;}"
+          new="function capacidadePrimeiraPagina(turma){const texto=String(turma.conteudo_programatico||turma.topicos_realizados||'');const linhas=texto.split(/\\r?\\n/).length;const caracteres=texto.length;const linhasVisuais=Math.max(linhas,Math.ceil(caracteres/105));if(linhasVisuais>=34)return 2;if(linhasVisuais>=30)return 3;if(linhasVisuais>=26)return 4;if(linhasVisuais>=22)return 5;if(linhasVisuais>=18)return 6;if(linhasVisuais>=14)return 7;return 8;}"
+          if old not in s:
+              raise SystemExit('Trecho capacidadePrimeiraPagina nao encontrado; nenhuma alteracao aplicada.')
+          s=s.replace(old,new)
 
-          # CSS: numero estreito, nome alinhado a esquerda, demais colunas preservadas.
-          s=s.replace('.participantes td:nth-child(1){width:34%;font-weight:600;text-align:center}.participantes td:nth-child(2){width:20%;font-weight:600;text-align:center}.participantes td:nth-child(3){width:46%}', '.participantes th:nth-child(1),.participantes td:nth-child(1){width:6%;text-align:center}.participantes th:nth-child(2),.participantes td:nth-child(2){width:32%}.participantes td:nth-child(2){font-weight:600;text-align:left}.participantes th:nth-child(3),.participantes td:nth-child(3){width:20%;text-align:center}.participantes th:nth-child(4),.participantes td:nth-child(4){width:42%}')
+          # Nas paginas de continuacao, o conteudo comeca rigorosamente depois do cabecalho.
+          # Cria uma classe especifica para impedir qualquer deslocamento herdado.
+          s=s.replace('<div class=\"conteudo-pagina\">${i===0?conteudoPrimeira:\'\'}${tabelaParticipantes(g,i===0)}</div>', '<div class=\"conteudo-pagina ${i===0?\'pagina-primeira\':\'pagina-continuacao\'}\">${i===0?conteudoPrimeira:\'\'}${tabelaParticipantes(g,i===0)}</div>')
+          s=s.replace('.conteudo-pagina{position:absolute;left:11mm;right:11mm;top:35mm;height:230mm;max-height:230mm;overflow:hidden}', '.conteudo-pagina{position:absolute;left:11mm;right:11mm;top:35mm;height:230mm;max-height:230mm;overflow:hidden}.pagina-continuacao{top:35mm!important;height:230mm!important;max-height:230mm!important;padding-top:0!important;margin-top:0!important}')
 
-          # Na medicao da primeira pagina preserva numero/nome/cpf.
-          s=s.replace("participantes.push({nome:tr.cells[0]?.textContent||'',cpf:tr.cells[1]?.textContent||''})", "participantes.push({numero:tr.cells[0]?.textContent||'',nome:tr.cells[1]?.textContent||'',cpf:tr.cells[2]?.textContent||''})")
-          s=s.replace("tr.innerHTML='<td>'+esc(p.nome)+'</td><td>'+esc(p.cpf)+'</td><td class=\"assinatura\"></td>'", "tr.innerHTML='<td class=\"numero-participante\">'+esc(p.numero)+'</td><td class=\"nome-participante\">'+esc(p.nome)+'</td><td>'+esc(p.cpf)+'</td><td class=\"assinatura\"></td>'")
-
-          # Antes de gerar, garante numeracao global, inclusive nas paginas seguintes.
-          s=s.replace("function htmlImpressao(turma,participantes,identidade){const cor=", "function htmlImpressao(turma,participantes,identidade){participantes=(participantes||[]).map((p,i)=>({...p,numero:i+1}));const cor=")
+          # Evita quebra de uma linha de participante no meio.
+          s=s.replace('.assinatura{height:34px}', '.participantes tr{break-inside:avoid;page-break-inside:avoid}.assinatura{height:34px}')
 
           p.write_text(s,encoding='utf-8')
           PY
@@ -42,5 +46,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add lista-presenca-github.js
           git diff --cached --quiet && exit 0
-          git commit -m 'Numera participantes e alinha nomes a esquerda'
+          git commit -m 'Corrige linhas ocultas sob cabecalho da segunda pagina'
           git push
