@@ -21,8 +21,9 @@
       const [lista,certs]=await Promise.all([window.obterListaPresencaGithub(ev),window.obterCertificadosGithub(ev)]);
       const pastaLista=await raiz.getDirectoryHandle('01) Lista de Presença',{create:true});
       await raiz.getDirectoryHandle('02) Fotos',{create:true});
-      const nomeTerceira=lista.ehIT12?'03) IT 12':'03) Certificados';
-      const pastaCert=await raiz.getDirectoryHandle(nomeTerceira,{create:true});
+      const pastaCertRaiz=await raiz.getDirectoryHandle('03) Certificados',{create:true});
+      const pastaCert=await pastaCertRaiz.getDirectoryHandle(limparNome(lista.turma.treinamento||'Treinamento'),{create:true});
+      const pastaIT12=lista.ehIT12?await raiz.getDirectoryHandle('04) IT 12',{create:true}):null;
       document.getElementById('statusArquivo').textContent='Gerando lista de presença...';
       const pdfLista=await htmlParaPdf(lista.html,'portrait');
       await gravar(pastaLista,limparNome(lista.turma.treinamento||'Lista de Presença')+'.pdf',pdfLista);
@@ -32,6 +33,7 @@
         const pdf=await htmlParaPdf(d.html,'landscape');
         await gravar(pastaCert,limparNome(d.nome)+'.pdf',pdf);
       }
+      if(pastaIT12&&lista.htmlAtestadoIT12){document.getElementById('statusArquivo').textContent='Gerando atestado IT 12...';const pdfAtestado=await htmlParaPdf(lista.htmlAtestadoIT12,'portrait');await gravar(pastaIT12,'ATESTADO DE FORMAÇÃO DE BRIGADA DE INCÊNDIO.pdf',pdfAtestado);}
       aviso.remove();alert('Pasta atualizada com sucesso. Arquivos com o mesmo nome foram substituídos.');
     }catch(e){aviso.remove();alert('Erro ao gerar a pasta: '+e.message);}
   };
