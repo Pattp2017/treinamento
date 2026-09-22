@@ -7,9 +7,9 @@
     const doc=new DOMParser().parseFromString(html,'text/html');
     [...doc.querySelectorAll('.acoes-print,script')].forEach(x=>x.remove());
     const style=document.createElement('style');style.textContent=[...doc.querySelectorAll('style')].map(x=>x.textContent).join('\n');box.appendChild(style);
-    const corpo=document.createElement('div');corpo.innerHTML=doc.body.innerHTML;box.appendChild(corpo);document.body.appendChild(box);
+    const corpo=document.createElement('div');corpo.innerHTML=doc.body.innerHTML;corpo.style.margin='0';corpo.style.padding='0';box.appendChild(corpo);document.body.appendChild(box);
     await Promise.all([...box.querySelectorAll('img')].map(img=>img.complete?Promise.resolve():new Promise(r=>{img.onload=img.onerror=r;})));
-    try{return await html2pdf().set({margin:0,filename:'documento.pdf',image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:orientacao},pagebreak:{mode:['css','legacy']}}).from(corpo).outputPdf('blob');}
+    try{return await html2pdf().set({margin:0,filename:'documento.pdf',image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:orientacao},pagebreak:{mode:['css']}}).from(corpo).outputPdf('blob');}
     finally{box.remove();}
   }
   window.arquivarTreinamentoGithub=async function(ev){
