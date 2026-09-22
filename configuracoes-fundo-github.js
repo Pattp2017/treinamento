@@ -17,7 +17,7 @@
   function n(v,d){const x=Number(v);return Number.isFinite(x)?x:d;}
 
   async function lerConfig(){
-    const rows=await supabaseFetch('configuracao_empresa?ativo=eq.true&select=*&limit=1');
+    const rows=await supabaseFetch('treinamento_configuracao_empresa?ativo=eq.true&select=*&limit=1');
     return rows?.[0]||null;
   }
 
@@ -78,7 +78,7 @@
         certificado_verso_ajuste:document.getElementById('verso_ajuste')?.value||'cover',
         atualizado_em:new Date().toISOString()
       };
-      const resp=await supabaseFetch('configuracao_empresa?id=eq.'+encodeURIComponent(c.id),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(dados)});
+      const resp=await supabaseFetch('treinamento_configuracao_empresa?id=eq.'+encodeURIComponent(c.id),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(dados)});
       if(window.TREINAMENTO_IDENTIDADE_EMPRESA) Object.assign(window.TREINAMENTO_IDENTIDADE_EMPRESA,dados);
       if(resp?.[0]) window.TREINAMENTO_IDENTIDADE_EMPRESA=resp[0];
     }catch(e){
