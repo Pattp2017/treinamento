@@ -9,7 +9,21 @@
   function formatarCarga(v){if(v===null||v===undefined||v==='')return'';const n=Number(v);if(!Number.isFinite(n))return String(v);let h=Math.floor(n),m=Math.round((n-h)*60);if(m===60){h++;m=0;}return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;}
   function fecharModal(){document.getElementById('modalListaPresenca')?.remove();}
   function conteudoHtml(texto){const bruto=String(texto||'Conteúdo programático não informado.'),linhas=bruto.split(/\r?\n/);let iniciou=false;return linhas.map(linha=>{const t=String(linha||'').trim();if(!t)return '<div style="height:5px"></div>';const titulo=t.match(/^\*\*(.+?)\*\*$/);if(titulo){iniciou=true;return `<div style="font-weight:700;margin:6px 0 3px">${esc(titulo[1])}</div>`;}if(!iniciou)return `<div style="margin-bottom:5px">${esc(t)}</div>`;const limpo=t.replace(/^[▫•▪◦\-]\s*/,'');const formatado=esc(limpo).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');return `<div style="padding-left:12px;text-indent:-8px;margin:1px 0">• ${formatado}</div>`;}).join('');}
-  async function carregarIdentidade(){if(window.TREINAMENTO_IDENTIDADE_EMPRESA)return window.TREINAMENTO_IDENTIDADE_EMPRESA;const rows=await supabaseFetch('treinamento_configuracao_empresa?ativo=eq.true&select=*&limit=1');return rows?.[0]||{};}
+  async function carregarIdentidade(){
+    if(window.TREINAMENTO_IDENTIDADE_EMPRESA?.emissora_ativa)return window.TREINAMENTO_IDENTIDADE_EMPRESA;
+    const rows=await supabaseFetch('empresa_configuracao?emissora_ativa=eq.true&select=*&limit=1');
+    const identidade=rows?.[0]||{};
+    if(identidade.empresa_id){
+      const es=await supabaseFetch('empresas?id=eq.'+encodeURIComponent(identidade.empresa_id)+'&select=id,nome,telefone,email,endereco&limit=1');
+      const e=es?.[0]||{};
+      identidade.nome_exibicao=identidade.nome_exibicao||e.nome||'';
+      identidade.telefone=e.telefone||'';
+      identidade.email=e.email||'';
+      identidade.endereco=e.endereco||'';
+    }
+    window.TREINAMENTO_IDENTIDADE_EMPRESA=identidade;
+    return identidade;
+  }
   function cabecalhoDocumento(turma,identidade){const logo=identidade.logo_url?`<img src="${esc(identidade.logo_url)}" class="logo-img">`:`<div class="logo-fallback">${esc(identidade.nome_exibicao||'Empresa')}</div>`;return `<table class="cabecalho-doc"><tr><td class="logo-doc" rowspan="2">${logo}</td><td class="titulo-doc" colspan="5">Relatório de Treinamento</td></tr><tr><td><b>Código ▼</b><span>Form: Lista_Presença</span></td><td><b>Impresso em ▼</b><span>${hojeBr()}</span></td><td><b>Elaborado por ▼</b><span>${esc(identidade.nome_exibicao||'')}</span></td><td><b>Aprovado por ▼</b><span></span></td><td><b>Página ▼</b><span class="pagina-numero"></span></td></tr></table>`;}
   function blocoDados(turma){return `<table class="dados-turma"><tr class="faixa"><th>Instrutor (es)</th><th>Habilitação</th><th>Registro Profissional</th><th>Local do Treinamento</th></tr><tr><td>${esc(turma.instrutor||'')}</td><td>${esc(turma.habilitacao_instrutor||'')}</td><td>${esc(turma.registro_instrutor||'')}</td><td>${esc(turma.empresa||'')}</td></tr><tr class="faixa"><th>Data Inicial</th><th>Data Final</th><th colspan="2">Carga Horária</th></tr><tr><td>${esc(dataBr(turma.data_inicio))}</td><td>${esc(dataBr(turma.data_fim))}</td><td colspan="2">${esc(formatarCarga(turma.carga_horaria))}</td></tr></table>`;}
   function tabelaParticipantes(participantes){const linhas=participantes.map(p=>`<tr><td>${esc(p.nome)}</td><td>${esc(formatarCPF(p.cpf))}</td><td class="assinatura"></td></tr>`).join('');return `<table class="participantes"><thead><tr class="faixa"><th>NOME</th><th>CPF</th><th>ASSINATURA</th></tr></thead><tbody>${linhas}</tbody></table>`;}
