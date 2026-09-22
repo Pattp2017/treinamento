@@ -206,8 +206,30 @@
       document.getElementById('cfgEmpresa').onchange=async e=>{
         const id=e.target.value;if(!id)return;
         const conf=await carregar(id);
-        if(!conf){const emp=empresas.find(x=>String(x.id)===String(id));registro=null;empresaSelecionada=emp||null;}
-        await window.renderConfiguracoesGithub();
+        if(!conf){
+          const emp=empresas.find(x=>String(x.id)===String(id));
+          registro=null;
+          empresaSelecionada=emp||null;
+        }
+        const select=document.getElementById('cfgEmpresa');
+        if(select) select.value=id;
+        document.getElementById('cfgNome').value=conf?.nome_exibicao||empresaSelecionada?.nome||'';
+        document.getElementById('cfgSubtitulo').value=conf?.subtitulo||'';
+        document.getElementById('cfgTelefone').value=empresaSelecionada?.telefone||'';
+        document.getElementById('cfgEmail').value=empresaSelecionada?.email||'';
+        document.getElementById('cfgEndereco').value=empresaSelecionada?.endereco||'';
+        document.getElementById('cfgCor').value=conf?.cor_principal||'#0b8f43';
+        document.getElementById('cfgLogo').value=conf?.logo_url||'';
+        document.getElementById('cfgRodape').value=conf?.rodape_url||'';
+        document.getElementById('cfgCertModelo').value=conf?.certificado_modelo||'padrao';
+        document.getElementById('cfgCertLogo').value=conf?.certificado_logo_url||'';
+        document.getElementById('cfgCertFrente').value=conf?.certificado_frente_url||'';
+        document.getElementById('cfgCertVerso').value=conf?.certificado_verso_url||'';
+        document.getElementById('cfgAssTam').value=String(conf?.certificado_assinatura_tamanho||100);
+        document.getElementById('cfgAssOp').value=String(conf?.certificado_assinatura_opacidade||100);
+        atualizarCamposCertificado();
+        atualizarPreview();
+        atualizarPreviewAssinatura();
       };
       ['cfgNome','cfgSubtitulo','cfgLogo','cfgRodape'].forEach(id=>document.getElementById(id).addEventListener('input',atualizarPreview));
       document.getElementById('cfgCertModelo').onchange=atualizarCamposCertificado;
