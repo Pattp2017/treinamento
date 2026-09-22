@@ -14,28 +14,49 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fixar geometria A4 da lista
+      - name: Corrigir paginacao real da lista
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('lista-presenca-github.js')
           s=p.read_text(encoding='utf-8')
 
-          # Geometria aprovada da folha:
-          # A4 = 29,7 cm
-          # margem superior = 1,0 cm
-          # cabecalho = 2,5 cm
-          # area util apos cabecalho = 23,0 cm (ate 26,5 cm da folha)
-          # seguranca = 0,6 cm
-          # rodape = 1,8 cm (27,1 a 28,9 cm)
-          # margem inferior = 0,8 cm
-          s=s.replace('.pagina-lista{position:relative;width:210mm;height:297mm;padding:10mm 11mm 32mm;overflow:hidden;page-break-after:always;break-after:page}', '.pagina-lista{position:relative;width:210mm;height:297mm;padding:0 11mm;overflow:hidden;page-break-after:always;break-after:page}')
-          s=s.replace('.conteudo-pagina{max-height:255mm;overflow:hidden}', '.conteudo-pagina{position:absolute;left:11mm;right:11mm;top:35mm;height:230mm;max-height:230mm;overflow:hidden}')
-          s=s.replace('.cabecalho-doc{margin-bottom:10px}', '.cabecalho-doc{position:absolute;left:11mm;right:11mm;top:10mm;width:188mm;height:25mm;margin:0;table-layout:fixed}')
-          s=s.replace('.logo-doc{width:20%;text-align:center;padding:5px}', '.logo-doc{width:20%;height:25mm;text-align:center;padding:2mm}')
-          s=s.replace('.logo-img{max-width:170px;max-height:68px;object-fit:contain}', '.logo-img{max-width:100%;max-height:21mm;object-fit:contain}')
-          s=s.replace('.titulo-doc{text-align:center;font-family:Georgia,serif;font-size:18px;height:30px}', '.titulo-doc{text-align:center;font-family:Georgia,serif;font-size:18px;height:10mm}')
-          s=s.replace('.rodape-img,.rodape-texto{position:absolute;left:11mm;right:11mm;top:271mm;height:18mm;margin:0}', '.rodape-img,.rodape-texto{position:absolute;left:11mm;right:11mm;top:271mm;height:18mm;margin:0}')
+          # O erro anterior era overflow:hidden: ele apenas cortava a linha.
+          # Agora o conteudo continua limitado fisicamente a 23 cm, mas a divisao
+          # dos participantes e recalculada no navegador pela altura real renderizada.
+          s=s.replace('function paginarParticipantes(turma,participantes){const primeira=capacidadePrimeiraPagina(turma),demais=18,paginas=[];paginas.push(participantes.slice(0,primeira));for(let i=primeira;i<participantes.length;i+=demais)paginas.push(participantes.slice(i,i+demais));return paginas.length?paginas:[[]];}', '''function paginarParticipantes(turma,participantes){
+    return [participantes.slice()];
+  }
+  function redistribuirLinhasPorAltura(doc){
+    const paginas=[...doc.querySelectorAll('.pagina-lista')];
+    if(!paginas.length)return;
+    let participantes=[];
+    paginas.forEach(pg=>pg.querySelectorAll('.participantes tbody tr').forEach(tr=>participantes.push({nome:tr.cells[0]?.textContent||'',cpf:tr.cells[1]?.textContent||''})));
+    if(!participantes.length)return;
+    const primeira=paginas[0], tabela=primeira.querySelector('.participantes'), corpo=tabela?.querySelector('tbody');
+    if(!tabela||!corpo)return;
+    corpo.innerHTML='';
+    const limite=primeira.querySelector('.conteudo-pagina').getBoundingClientRect().bottom;
+    let cabem=0;
+    for(const p of participantes){
+      const tr=doc.createElement('tr');tr.innerHTML='<td>'+esc(p.nome)+'</td><td>'+esc(p.cpf)+'</td><td class="assinatura"></td>';corpo.appendChild(tr);
+      if(tr.getBoundingClientRect().bottom>limite+0.5){tr.remove();break;}cabem++;
+    }
+    const restantes=participantes.slice(cabem);
+    const porPagina=[];
+    while(restantes.length){
+      const lote=[];
+      const teste=doc.createElement('section');teste.className='pagina-lista pagina-medicao';teste.style.position='absolute';teste.style.visibility='hidden';teste.style.left='-9999px';
+      teste.innerHTML=cabecalhoDocumento({},window.__listaIdentidade||{},1,1)+'<div class="conteudo-pagina">'+tabelaParticipantes([],false)+'</div>'+rodapeDocumento(window.__listaIdentidade||{});doc.body.appendChild(teste);
+      const tb=teste.querySelector('.participantes tbody'), lim=teste.querySelector('.conteudo-pagina').getBoundingClientRect().bottom;
+      while(restantes.length){const p=restantes[0],tr=doc.createElement('tr');tr.innerHTML='<td>'+esc(p.nome)+'</td><td>'+esc(p.cpf)+'</td><td class="assinatura"></td>';tb.appendChild(tr);if(tr.getBoundingClientRect().bottom>lim+0.5){tr.remove();break;}lote.push(restantes.shift());}
+      teste.remove();if(!lote.length)lote.push(restantes.shift());porPagina.push(lote);
+    }
+    if(porPagina.length) window.__listaPaginasCalculadas=[participantes.slice(0,cabem),...porPagina];
+  }''')
+
+          # Mantem geometria fixa, mas nao usa overflow para esconder erro de paginacao.
+          s=s.replace('height:230mm;max-height:230mm;overflow:hidden', 'height:230mm;max-height:230mm;overflow:visible')
 
           p.write_text(s,encoding='utf-8')
           PY
@@ -45,5 +66,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add lista-presenca-github.js
           git diff --cached --quiet && exit 0
-          git commit -m 'Fixa cabecalho de 2,5 cm e area util de 23 cm'
+          git commit -m 'Move linhas excedentes em vez de cortar na lista'
           git push
