@@ -21,9 +21,10 @@ jobs:
           p=Path('lista-presenca-github.js')
           s=p.read_text(encoding='utf-8')
           s=s.replace(".pagina-lista{position:relative;width:210mm;height:297mm;padding:10mm 11mm 31mm;overflow:hidden;page-break-after:always;break-after:page}", ".pagina-lista{position:relative;width:210mm;height:297mm;padding:10mm 11mm 32mm;overflow:hidden;page-break-after:always;break-after:page}")
-          s=s.replace(".conteudo-pagina{max-height:256mm;overflow:hidden}", ".conteudo-pagina{position:absolute;left:11mm;right:11mm;top:10mm;bottom:32mm;overflow:hidden}")
-          # O cabecalho faz parte da area util; o limite inferior fisico do conteudo e 265 mm.
-          # Rodape: 18 mm de altura, de 271 a 289 mm, com 6 mm de seguranca.
+          s=s.replace(".conteudo-pagina{max-height:256mm;overflow:hidden}", ".conteudo-pagina{max-height:255mm;overflow:hidden}")
+          s=s.replace(".conteudo-pagina{position:absolute;left:11mm;right:11mm;top:10mm;bottom:32mm;overflow:hidden}", ".conteudo-pagina{max-height:255mm;overflow:hidden}")
+          # Limite fisico: nenhum conteudo pode passar de 265 mm a partir do topo da A4.
+          # Rodape reservado: 18 mm, de 271 a 289 mm; folga de seguranca: 6 mm.
           s=s.replace(".rodape-img,.rodape-texto{position:absolute;left:11mm;right:11mm;bottom:8mm;height:18mm;margin:0}", ".rodape-img,.rodape-texto{position:absolute;left:11mm;right:11mm;top:271mm;height:18mm;margin:0}")
           p.write_text(s,encoding='utf-8')
           PY
@@ -33,5 +34,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add lista-presenca-github.js
           git diff --cached --quiet && exit 0
-          git commit -m 'Aplica limite fisico de 26,5 cm e rodape fixo'
+          git commit -m 'Corrige area util A4 e reserva fixa do rodape'
           git push
