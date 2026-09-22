@@ -1,8 +1,20 @@
 (() => {
   function limparNome(v){return String(v||'arquivo').normalize('NFC').replace(/[<>:"/\\|?*\x00-\x1F]/g,' ').replace(/[. ]+$/g,'').replace(/\s+/g,' ').trim()||'arquivo';}
   async function gravar(dir,nome,blob){const arq=await dir.getFileHandle(limparNome(nome),{create:true});const w=await arq.createWritable();await w.write(blob);await w.close();}
+  function corrigirRodapeLista(html){
+    if(!html||!html.includes('Relatório de Treinamento')||!html.includes('rodape-img'))return html;
+    let h=html.replace('@page{size:A4;margin:10mm 11mm 10mm}','@page{size:A4;margin:10mm 11mm 30mm}');
+    h=h.replace('.pagina-lista{position:relative;min-height:277mm;padding-bottom:24mm}', '.pagina-lista{position:relative;min-height:0;padding-bottom:0}');
+    h=h.replace('@media print{.acoes-print{display:none}.pagina-numero:after{content:counter(page)}}', '@media print{.acoes-print{display:none}.pagina-numero:after{content:counter(page)}.rodape-img,.rodape-texto{position:fixed!important;left:0!important;right:0!important;bottom:-22mm!important;height:18mm!important;z-index:20;background:#fff}.rodape-img img{width:100%!important;height:18mm!important;max-height:18mm!important;object-fit:cover!important}.pagina-lista{padding-bottom:0!important;min-height:0!important}}');
+    return h;
+  }
+  const obterListaOriginal=window.obterListaPresencaGithub;
+  if(obterListaOriginal)window.obterListaPresencaGithub=async function(ev){const d=await obterListaOriginal(ev);d.html=corrigirRodapeLista(d.html);return d;};
+  const abrirOriginal=window.open.bind(window);
+  window.open=function(...args){const w=abrirOriginal(...args);if(!w)return w;try{const escrever=w.document.write.bind(w.document);w.document.write=function(html){return escrever(corrigirRodapeLista(html));};}catch(e){}return w;};
   async function htmlParaPdf(html,orientacao='portrait'){
     if(!window.html2pdf)throw new Error('Gerador de PDF não carregado.');
+    html=orientacao==='portrait'?corrigirRodapeLista(html):html;
     const box=document.createElement('div');box.style.cssText='position:fixed;left:-100000px;top:0;background:#fff;z-index:-1';
     const doc=new DOMParser().parseFromString(html,'text/html');
     [...doc.querySelectorAll('.acoes-print,script')].forEach(x=>x.remove());
