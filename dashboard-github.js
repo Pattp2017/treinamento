@@ -11,10 +11,10 @@
   function etapaTexto(a){if(String(a.status||'').toLowerCase()==='cancelado')return 'Cancelado';return ({1:'Agendado',2:'Turma cadastrada',3:'Lista gerada',4:'Concluído'})[Number(a.etapa||1)]||`Etapa ${a.etapa||1}`;}
   async function carregar(){
     const [agendas,turmas,participantes,historico]=await Promise.all([
-      supabaseFetch('agenda?select=id,codigo,id_turma,data_inicio,data_fim,empresa,treinamento,instrutor,status,etapa&order=data_inicio.asc&limit=3000'),
-      supabaseFetch('turmas?select=id,codigo,agenda_id,data_inicio&limit=3000'),
-      supabaseFetch('turma_participantes?select=turma_id,cpf&limit=10000'),
-      supabaseFetch('historico_documentos?select=turma_id,tipo,cpf,status,criado_em&limit=10000')
+      supabaseFetch('treinamento_agenda?select=id,codigo,id_turma,data_inicio,data_fim,empresa,treinamento,instrutor,status,etapa&order=data_inicio.asc&limit=3000'),
+      supabaseFetch('treinamento_turmas?select=id,codigo,agenda_id,data_inicio&limit=3000'),
+      supabaseFetch('treinamento_turma_participantes?select=turma_id,cpf&limit=10000'),
+      supabaseFetch('treinamento_historico_documentos?select=turma_id,tipo,cpf,status,criado_em&limit=10000')
     ]);
     const hoje=hojeISO(),ativas=agendas.filter(a=>String(a.status||'').toLowerCase()!=='cancelado');
     const agMes=ativas.filter(a=>mesAtual(a.data_inicio));
