@@ -9,7 +9,7 @@
     const tabela=doc.querySelector('table.participantes'),tbody=tabela?.querySelector('tbody');
     if(!tabela||!tbody)return htmlParaPdf(html,'portrait');
     const linhas=[...tbody.querySelectorAll('tr')].map(x=>x.outerHTML);
-    const antes=[...doc.body.childNodes].filter(n=>n!==tabela&&!n.classList?.contains('rodape-img')&&!n.classList?.contains('rodape-texto')).map(n=>n.outerHTML||n.textContent).join('');
+    const antes=[];for(const n of [...doc.body.childNodes]){if(n===tabela)break;if(!n.classList?.contains('rodape-img')&&!n.classList?.contains('rodape-texto'))antes.push(n.outerHTML||n.textContent);}const conteudoAntes=antes.join('');
     const rodape=[...doc.body.querySelectorAll('.rodape-img,.rodape-texto')].map(n=>n.outerHTML).join('');
     const cab=tabela.querySelector('thead')?.outerHTML||'';
     const estilos=[...doc.querySelectorAll('style')].map(x=>x.textContent).join('\n');
@@ -19,7 +19,7 @@
     try{
       while(restantes.length){
         let usados=[];
-        const pagina=criarPagina(antes,usados,primeira);host.appendChild(pagina);
+        const pagina=criarPagina(conteudoAntes,usados,primeira);host.appendChild(pagina);
         await Promise.all([...pagina.querySelectorAll('img')].map(img=>img.complete?Promise.resolve():new Promise(r=>{img.onload=img.onerror=r;})));
         const area=pagina.querySelector('.lista-pagina-conteudo');
         const limite=pagina.clientHeight-48;
