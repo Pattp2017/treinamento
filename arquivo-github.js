@@ -109,12 +109,15 @@
         await Promise.all([...pagina.querySelectorAll('img')].map(img=>img.complete?Promise.resolve():new Promise(r=>{img.onload=img.onerror=r;})));
         const fluxo=pagina.querySelector('.lista-pdf-fluxo');
         const corpo=pagina.querySelector('table.participantes tbody');
-        // Reserva 16 mm na base da página para o rodapé e sua folga.
-        const limite=pagina.clientHeight-(16/25.4*96);
+        // O limite real é o topo do rodapé. Assim nenhuma linha pode ficar escondida atrás dele.
+        const rodapeEl=pagina.querySelector('.rodape-img,.rodape-texto');
+        const paginaRect=pagina.getBoundingClientRect();
+        const limite=rodapeEl?rodapeEl.getBoundingClientRect().top-paginaRect.top-8:pagina.clientHeight-(20/25.4*96);
         let adicionadas=0;
         while(indice<linhas.length){
           corpo.insertAdjacentHTML('beforeend',linhas[indice]);
-          if(fluxo.scrollHeight>limite){
+          const fimTabela=corpo.closest('table').getBoundingClientRect().bottom-paginaRect.top;
+          if(fimTabela>limite){
             corpo.lastElementChild?.remove();
             break;
           }
