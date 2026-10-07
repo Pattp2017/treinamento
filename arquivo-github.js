@@ -57,7 +57,7 @@
         const pagina=novaPagina(primeira);
         await Promise.all([...pagina.querySelectorAll('img')].map(img=>img.complete?Promise.resolve():new Promise(r=>{img.onload=img.onerror=r;})));
         const fluxo=pagina.querySelector('.lista-pdf-fluxo');
-        const corpo=pagina.querySelector('tbody');
+        const corpo=pagina.querySelector('table.participantes tbody');
         const limite=pagina.clientHeight-96;
         let adicionadas=0;
         while(indice<linhas.length){
