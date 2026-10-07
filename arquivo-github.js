@@ -154,18 +154,17 @@
     try{raiz=await window.showDirectoryPicker({mode:'readwrite'});}catch(e){if(e?.name!=='AbortError')alert('Não foi possível abrir a pasta: '+e.message);return;}
     const aviso=document.createElement('div');aviso.className='modal';aviso.innerHTML='<div class="modal-box" style="width:min(520px,92vw)"><h3>📁 Arquivando treinamento</h3><p id="statusArquivo">Preparando documentos...</p></div>';document.body.appendChild(aviso);
     try{
-      const [lista,certs]=await Promise.all([window.obterListaPresencaGithub(ev),window.obterCertificadosGithub(ev)]);const idTreinamento=lista.turma.treinamento_id||ev.treinamento_id||null;let nomeOperacional=lista.turma.treinamento||'Treinamento';if(idTreinamento){try{const base=(window.SUPABASE_CONFIG?.url||'').replace(/\/$/,'');const key=window.SUPABASE_CONFIG?.anonKey||'';if(base&&key){const r=await fetch(base+'/rest/v1/treinamento_treinamentos?id=eq.'+encodeURIComponent(idTreinamento)+'&select=nome,apelido',{headers:{apikey:key,Authorization:'Bearer '+key,Accept:'application/json'}});if(r.ok){const dados=await r.json();const tr=dados?.[0];nomeOperacional=tr?.apelido||tr?.nome||nomeOperacional;}}}catch(_){}}
-      const pastaLista=await raiz.getDirectoryHandle('01) Lista de Presença',{create:true});
+      const [lista,certs]=await Promise.all([window.obterListaPresencaGithub(ev),window.obterCertificadosGithub(ev)]);const pastaLista=await raiz.getDirectoryHandle('01) Lista de Presença',{create:true});
       await raiz.getDirectoryHandle('02) Fotos',{create:true});
       const pastaCertRaiz=await raiz.getDirectoryHandle('03) Certificados',{create:true});
-      const pastaCert=await pastaCertRaiz.getDirectoryHandle(limparNome(nomeOperacional),{create:true});
+      const pastaCert=await pastaCertRaiz.getDirectoryHandle(limparNome(lista.turma.treinamento||'Treinamento'),{create:true});
       const pastaIT12=lista.ehIT12?await raiz.getDirectoryHandle('04) IT 12',{create:true}):null;
-      const nomeTreinamento=nomeOperacional;
+      const nomeTreinamento=lista.turma.treinamento||'Treinamento';
       const statusArquivo=document.getElementById('statusArquivo');
       const atualizarStatus=(mensagem)=>{statusArquivo.innerHTML='<strong>'+nomeTreinamento+'</strong><br>'+mensagem;};
       atualizarStatus('Gerando lista de presença...');
       const pdfLista=await htmlListaParaPdf(lista.html);
-      await gravar(pastaLista,limparNome(nomeOperacional||'Lista de Presença')+'.pdf',pdfLista);
+      await gravar(pastaLista,limparNome(lista.turma.treinamento||'Lista de Presença')+'.pdf',pdfLista);
       let n=0;
       for(const d of certs.documentos){
         atualizarStatus('Gerando certificado '+(++n)+' de '+certs.documentos.length+'...');
