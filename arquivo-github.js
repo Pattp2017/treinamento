@@ -19,6 +19,19 @@
     const estilos=[...doc.querySelectorAll('style')].map(x=>x.textContent).join('\n');
     // Captura o rodapé em qualquer nível do HTML. Não restringir a filho direto do body.
     const rodape=[...doc.querySelectorAll('.rodape-img,.rodape-texto')].map(n=>n.outerHTML).join('');
+    // Prepara o corpo-base da primeira página: mantém toda a estrutura original,
+    // retira o rodapé (ele será recolocado no final) e substitui apenas a tabela
+    // de participantes por um marcador para a paginação.
+    const tabelaMarcador='lista-participantes-paginada';
+    tabela.setAttribute('data-pdf-marker',tabelaMarcador);
+    const corpoClone=doc.body.cloneNode(true);
+    const tabelaClone=corpoClone.querySelector('[data-pdf-marker="'+tabelaMarcador+'"]');
+    const marcador=doc.createElement('div');
+    marcador.setAttribute('data-pdf-inserir-tabela','1');
+    tabelaClone?.replaceWith(marcador);
+    [...corpoClone.querySelectorAll('.rodape-img,.rodape-texto')].forEach(n=>n.remove());
+    const htmlBase=corpoClone.innerHTML;
+
     const rodapeSrcConfigurado=doc.querySelector('.rodape-img img')?.getAttribute('src')||'';
     const rodapeSrcPadrao='https://raw.githubusercontent.com/Pattp2017/treinamento/main/assets/Rodap%C3%A9_atualizado.png';
 
