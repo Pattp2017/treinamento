@@ -19,13 +19,15 @@
     const estilos=[...doc.querySelectorAll('style')].map(x=>x.textContent).join('\n');
     const rodape=[...doc.body.querySelectorAll(':scope > .rodape-img,:scope > .rodape-texto')].map(n=>n.outerHTML).join('');
 
-    const prefixo=[];
-    for(const n of [...doc.body.childNodes]){
-      if(n===tabela)break;
-      if(n.nodeType===1&&(n.matches('.rodape-img,.rodape-texto')))continue;
-      prefixo.push(n.outerHTML||n.textContent||'');
-    }
-    const htmlPrefixo=prefixo.join('');
+    const tabelaMarcador='lista-participantes-paginada';
+    tabela.setAttribute('data-pdf-marker',tabelaMarcador);
+    const corpoClone=doc.body.cloneNode(true);
+    const tabelaClone=corpoClone.querySelector('[data-pdf-marker="'+tabelaMarcador+'"]');
+    const marcador=doc.createElement('div');
+    marcador.setAttribute('data-pdf-inserir-tabela','1');
+    tabelaClone?.replaceWith(marcador);
+    [...corpoClone.querySelectorAll('.rodape-img,.rodape-texto')].forEach(n=>n.remove());
+    const htmlBase=corpoClone.innerHTML;
 
     const host=document.createElement('div');
     host.style.cssText='position:fixed;left:-100000px;top:0;width:210mm;background:#fff;z-index:-1';
@@ -35,7 +37,15 @@
       const p=document.createElement('div');
       p.className='lista-pdf-pagina';
       p.style.cssText='width:210mm;height:297mm;padding:12.7mm;box-sizing:border-box;background:#fff;position:relative;overflow:hidden;font-family:Arial,sans-serif;color:#111;font-size:10px';
-      p.innerHTML='<style>'+estilos+'<\/style><div class="lista-pdf-fluxo">'+(primeira?htmlPrefixo:'')+'<table class="participantes">'+cab+'<tbody></tbody></table></div>'+rodape;
+      if(primeira){
+        p.innerHTML='<style>'+estilos+'<\/style><div class="lista-pdf-fluxo">'+htmlBase+'</div>'+rodape;
+        const fluxo=p.querySelector('.lista-pdf-fluxo');
+        const ponto=fluxo.querySelector('[data-pdf-inserir-tabela="1"]');
+        const t=doc.createElement('table');t.className='participantes';t.innerHTML=cab+'<tbody></tbody>';
+        ponto?.replaceWith(t);
+      }else{
+        p.innerHTML='<style>'+estilos+'<\/style><div class="lista-pdf-fluxo"><table class="participantes">'+cab+'<tbody></tbody></table></div>'+rodape;
+      }
       host.appendChild(p);
       return p;
     }
