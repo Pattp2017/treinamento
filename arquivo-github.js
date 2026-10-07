@@ -17,7 +17,8 @@
     const linhas=[...tbody.querySelectorAll('tr')].map(x=>x.outerHTML);
     const cab=tabela.querySelector('thead')?.outerHTML||'';
     const estilos=[...doc.querySelectorAll('style')].map(x=>x.textContent).join('\n');
-    const rodape=[...doc.body.querySelectorAll(':scope > .rodape-img,:scope > .rodape-texto')].map(n=>n.outerHTML).join('');
+    // Captura o rodapé em qualquer nível do HTML. Não restringir a filho direto do body.
+    const rodape=[...doc.querySelectorAll('.rodape-img,.rodape-texto')].map(n=>n.outerHTML).join('');
 
     const tabelaMarcador='lista-participantes-paginada';
     tabela.setAttribute('data-pdf-marker',tabelaMarcador);
@@ -48,7 +49,7 @@
       }
       // Posiciona o rodapé depois que todo o HTML da página já existe.
       // Fazemos diretamente nos elementos para não depender da cascata do CSS original.
-      [...p.querySelectorAll(':scope > .rodape-img,:scope > .rodape-texto')].forEach(r=>{
+      [...p.querySelectorAll('.rodape-img,.rodape-texto')].forEach(r=>{
         r.style.setProperty('position','absolute','important');
         r.style.setProperty('left','12.7mm','important');
         r.style.setProperty('right','12.7mm','important');
