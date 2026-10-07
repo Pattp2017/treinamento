@@ -40,7 +40,7 @@
     const clientes=[...new Set(eventos.map(e=>e.empresa).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
     const modal=document.createElement('div');modal.id='modalGeracaoLote';modal.className='modal';
     modal.innerHTML=`<div class="modal-box" style="width:min(720px,94vw)"><div style="display:flex;justify-content:space-between;align-items:center"><h3>⚡ Geração em lote</h3><button class="btn secundario" id="fecharGeracaoLote">✕</button></div>
-      <div class="grid-2" style="margin-top:12px"><label>Cliente<select id="loteCliente"><option value="">Selecione...</option>${clientes.map(x=>'<option>'+x+'</option>').join('')}</select></label><label>Ano<select id="loteAno"><option value="">Selecione...</option>${anos.map(x=>'<option>'+x+'</option>').join('')}</select></label></div>
+      <div class="grid-2" style="margin-top:12px"><label>Cliente<div style="position:relative"><input id="loteCliente" autocomplete="off" placeholder="Digite qualquer parte do nome"><div id="loteClienteSugestoes" style="display:none;position:absolute;z-index:30;left:0;right:0;top:100%;max-height:220px;overflow:auto;background:#fff;border:1px solid #ccd5d1;border-radius:0 0 8px 8px;box-shadow:0 5px 14px rgba(0,0,0,.10)"></div></div></label><label>Ano<select id="loteAno"><option value="">Selecione...</option>${anos.map(x=>'<option>'+x+'</option>').join('')}</select></label></div>
       <div style="display:flex;gap:22px;margin:14px 0"><label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="loteLista" checked style="width:18px;height:18px"> Lista de Presença</label><label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="loteCert" checked style="width:18px;height:18px"> Certificados</label></div>
       <div id="loteTreinamentos" style="border:1px solid #dde6e3;border-radius:10px;padding:10px;max-height:42vh;overflow:auto"><span style="color:#6c757d">Selecione cliente e ano.</span></div>
       <div id="loteStatus" style="margin-top:10px;font-size:13px"></div>
@@ -48,12 +48,23 @@
     document.body.appendChild(modal);
     const fechar=()=>modal.remove(),cliente=modal.querySelector('#loteCliente'),ano=modal.querySelector('#loteAno'),area=modal.querySelector('#loteTreinamentos'),btn=modal.querySelector('#gerarLote');
     const atualizar=()=>{
-      const lista=eventos.filter(e=>e.empresa===cliente.value&&String(e.data_inicio||'').startsWith(ano.value)&&e.id_turma&&String(e.status||'').toLowerCase()!=='cancelado');
+      const qCliente=String(cliente.value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();const lista=eventos.filter(e=>(!qCliente||String(e.empresa||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(qCliente))&&String(e.data_inicio||'').startsWith(ano.value)&&e.id_turma&&String(e.status||'').toLowerCase()!=='cancelado');
       area.innerHTML=lista.length?lista.map((e,i)=>{const tr=treinamentos.find(t=>String(t.id)===String(e.treinamento_id));const nome=tr?.apelido||e.treinamento||tr?.nome||'Treinamento';return `<label style="display:flex;align-items:center;gap:9px;padding:8px;border-bottom:1px solid #eef1f0"><input class="loteItem" type="checkbox" data-id="${e.id}" style="width:18px;height:18px"><span>${nome}</span></label>`;}).join(''):'<span style="color:#6c757d">Nenhum treinamento disponível para este filtro.</span>';
       modal.querySelectorAll('.loteItem').forEach(c=>c.onchange=()=>btn.disabled=!modal.querySelector('.loteItem:checked'));
       btn.disabled=true;
     };
-    cliente.onchange=atualizar;ano.onchange=atualizar;modal.querySelector('#fecharGeracaoLote').onclick=fechar;
+    const sugestoes=modal.querySelector('#loteClienteSugestoes');
+    const norm=v=>String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+    const atualizarSugestoes=()=>{
+      const q=norm(cliente.value);
+      if(!q){sugestoes.style.display='none';sugestoes.innerHTML='';atualizar();return;}
+      const encontrados=clientes.filter(x=>norm(x).includes(q)).slice(0,30);
+      sugestoes.innerHTML=encontrados.length?encontrados.map(x=>'<button type="button" class="loteClienteOpcao" data-nome="'+String(x).replace(/"/g,'&quot;')+'" style="display:block;width:100%;padding:8px 10px;border:0;border-bottom:1px solid #edf1ef;background:#fff;text-align:left;cursor:pointer">'+x+'</button>').join(''):'<div style="padding:8px 10px;color:#7b8580">Nenhum cliente encontrado</div>';
+      sugestoes.style.display='block';
+      sugestoes.querySelectorAll('.loteClienteOpcao').forEach(b=>b.onclick=()=>{cliente.value=b.dataset.nome;sugestoes.style.display='none';atualizar();});
+      atualizar();
+    };
+    cliente.oninput=atualizarSugestoes;cliente.onchange=atualizar;ano.onchange=atualizar;modal.querySelector('#fecharGeracaoLote').onclick=fechar;
     btn.onclick=async()=>{
       const op={lista:modal.querySelector('#loteLista').checked,certificados:modal.querySelector('#loteCert').checked};
       if(!op.lista&&!op.certificados)return alert('Marque Lista de Presença, Certificados ou ambos.');
