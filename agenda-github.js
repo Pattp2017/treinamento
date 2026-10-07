@@ -34,5 +34,42 @@
   function eventosFiltrados(){return eventos.filter(e=>(!filtroConsultor||String(e.instrutor_id||'')===String(filtroConsultor)||e.instrutor===filtroConsultor)&&(!filtroCliente||String(e.empresa||'').toLocaleLowerCase('pt-BR').includes(String(filtroCliente).toLocaleLowerCase('pt-BR'))));}
   function preencherFiltrosAgenda(){const fc=document.getElementById('filtroConsultor'),fe=document.getElementById('filtroCliente');if(!fc||!fe)return;fc.innerHTML='<option value="">Todos os consultores</option>';instrutores.forEach(i=>{const o=document.createElement('option');o.value=i.id;o.textContent=i.nome;fc.appendChild(o);});fc.value=filtroConsultor;fe.value=filtroCliente;fc.onchange=()=>{filtroConsultor=fc.value;desenhar();};fe.oninput=()=>{filtroCliente=fe.value.trim();desenhar();};document.getElementById('limparFiltrosAgenda').onclick=()=>{filtroConsultor='';filtroCliente='';fc.value='';fe.value='';desenhar();};}
   function desenhar(){const grade=document.getElementById('gradeAgenda');if(!grade)return;grade.innerHTML='';document.getElementById('mesAno').textContent=nomesMeses[dataAtual.getMonth()]+' / '+dataAtual.getFullYear();const primeiro=new Date(dataAtual.getFullYear(),dataAtual.getMonth(),1),ultimo=new Date(dataAtual.getFullYear(),dataAtual.getMonth()+1,0);for(let i=0;i<primeiro.getDay();i++)grade.appendChild(document.createElement('div')).className='agenda-dia vazio';for(let d=1;d<=ultimo.getDate();d++){const data=iso(new Date(dataAtual.getFullYear(),dataAtual.getMonth(),d)),cel=document.createElement('div');cel.className='agenda-dia';cel.innerHTML=`<div class="agenda-numero">${d}</div>`;cel.onclick=()=>abrirModal(data);eventosFiltrados().filter(e=>{const dia=criarDataLocal(data)?.getDay();return dia!==0&&dia!==6&&e.data_inicio<=data&&e.data_fim>=data;}).forEach(e=>cel.appendChild(cardEvento(e)));grade.appendChild(cel);}}
-  window.renderAgendaGithub=async function(){const area=document.getElementById('conteudoPrincipal');area.innerHTML=htmlAgenda();document.getElementById('mesAnterior').onclick=()=>{dataAtual.setMonth(dataAtual.getMonth()-1);desenhar();};document.getElementById('mesSeguinte').onclick=()=>{dataAtual.setMonth(dataAtual.getMonth()+1);desenhar();};document.getElementById('fecharAgenda').onclick=fecharModal;document.getElementById('salvarAgenda').onclick=salvar;document.getElementById('agData').onchange=calcularDataFinal;document.getElementById('agTreinamento').onchange=preencherDadosTreinamento;desenhar();if(!configurado())return;try{await Promise.all([carregarTreinamentos(),carregarCadastros()]);preencherSelect('agTreinamento',treinamentos,'nome');prepararBuscaEmpresas();atualizarInstrutores();preencherFiltrosAgenda();await carregarEventos();}catch(e){document.getElementById('avisoAgenda').textContent='Erro ao carregar dados: '+e.message;}};
+  function abrirGeracaoLote(){
+    document.getElementById('modalGeracaoLote')?.remove();
+    const anos=[...new Set(eventos.map(e=>String(e.data_inicio||'').slice(0,4)).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+    const clientes=[...new Set(eventos.map(e=>e.empresa).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const modal=document.createElement('div');modal.id='modalGeracaoLote';modal.className='modal';
+    modal.innerHTML=`<div class="modal-box" style="width:min(720px,94vw)"><div style="display:flex;justify-content:space-between;align-items:center"><h3>⚡ Geração em lote</h3><button class="btn secundario" id="fecharGeracaoLote">✕</button></div>
+      <div class="grid-2" style="margin-top:12px"><label>Cliente<select id="loteCliente"><option value="">Selecione...</option>${clientes.map(x=>'<option>'+x+'</option>').join('')}</select></label><label>Ano<select id="loteAno"><option value="">Selecione...</option>${anos.map(x=>'<option>'+x+'</option>').join('')}</select></label></div>
+      <div style="display:flex;gap:22px;margin:14px 0"><label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="loteLista" checked style="width:18px;height:18px"> Lista de Presença</label><label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="loteCert" checked style="width:18px;height:18px"> Certificados</label></div>
+      <div id="loteTreinamentos" style="border:1px solid #dde6e3;border-radius:10px;padding:10px;max-height:42vh;overflow:auto"><span style="color:#6c757d">Selecione cliente e ano.</span></div>
+      <div id="loteStatus" style="margin-top:10px;font-size:13px"></div>
+      <div class="acoes"><button class="btn primario" id="gerarLote" disabled>⚡ Gerar</button></div></div>`;
+    document.body.appendChild(modal);
+    const fechar=()=>modal.remove(),cliente=modal.querySelector('#loteCliente'),ano=modal.querySelector('#loteAno'),area=modal.querySelector('#loteTreinamentos'),btn=modal.querySelector('#gerarLote');
+    const atualizar=()=>{
+      const lista=eventos.filter(e=>e.empresa===cliente.value&&String(e.data_inicio||'').startsWith(ano.value)&&e.id_turma&&String(e.status||'').toLowerCase()!=='cancelado');
+      area.innerHTML=lista.length?lista.map((e,i)=>{const tr=treinamentos.find(t=>String(t.id)===String(e.treinamento_id));const nome=tr?.apelido||e.treinamento||tr?.nome||'Treinamento';return `<label style="display:flex;align-items:center;gap:9px;padding:8px;border-bottom:1px solid #eef1f0"><input class="loteItem" type="checkbox" data-id="${e.id}" style="width:18px;height:18px"><span>${nome}</span></label>`;}).join(''):'<span style="color:#6c757d">Nenhum treinamento disponível para este filtro.</span>';
+      modal.querySelectorAll('.loteItem').forEach(c=>c.onchange=()=>btn.disabled=!modal.querySelector('.loteItem:checked'));
+      btn.disabled=true;
+    };
+    cliente.onchange=atualizar;ano.onchange=atualizar;modal.querySelector('#fecharGeracaoLote').onclick=fechar;
+    btn.onclick=async()=>{
+      const op={lista:modal.querySelector('#loteLista').checked,certificados:modal.querySelector('#loteCert').checked};
+      if(!op.lista&&!op.certificados)return alert('Marque Lista de Presença, Certificados ou ambos.');
+      const ids=[...modal.querySelectorAll('.loteItem:checked')].map(c=>c.dataset.id),selecionados=ids.map(id=>eventos.find(e=>String(e.id)===String(id))).filter(Boolean);
+      if(!selecionados.length)return;
+      if(!window.showDirectoryPicker)return alert('Seu navegador não permite selecionar pastas. Use Chrome ou Edge atualizado.');
+      if(!window.gerarTreinamentoLoteGithub)return alert('Módulo de geração não carregado.');
+      let raiz;try{raiz=await window.showDirectoryPicker({mode:'readwrite'});}catch(e){if(e?.name!=='AbortError')alert('Não foi possível abrir a pasta: '+e.message);return;}
+      btn.disabled=true;cliente.disabled=ano.disabled=true;const status=modal.querySelector('#loteStatus');let erros=[];
+      for(let i=0;i<selecionados.length;i++){const ev=selecionados[i],tr=treinamentos.find(t=>String(t.id)===String(ev.treinamento_id)),nome=tr?.apelido||ev.treinamento||'Treinamento';try{await window.gerarTreinamentoLoteGithub(ev,raiz,op,msg=>{status.innerHTML='<strong>'+(i+1)+' de '+selecionados.length+' - '+nome+'</strong><br>'+msg;});}catch(e){erros.push(nome+': '+e.message);}}
+      cliente.disabled=ano.disabled=false;btn.disabled=false;status.innerHTML=erros.length?'<strong>Concluído com '+erros.length+' erro(s).</strong><br>'+erros.join('<br>'):'<strong>Concluído.</strong> '+selecionados.length+' treinamento(s) processado(s).';
+    };
+  }
+  function configurarAtalhoGeracaoLote(){
+    if(window.__atalhoGeracaoLote)return;window.__atalhoGeracaoLote=true;
+    document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&String(e.key).toLowerCase()==='g'){e.preventDefault();abrirGeracaoLote();}});
+  }
+  window.renderAgendaGithub=async function(){configurarAtalhoGeracaoLote();const area=document.getElementById('conteudoPrincipal');area.innerHTML=htmlAgenda();document.getElementById('mesAnterior').onclick=()=>{dataAtual.setMonth(dataAtual.getMonth()-1);desenhar();};document.getElementById('mesSeguinte').onclick=()=>{dataAtual.setMonth(dataAtual.getMonth()+1);desenhar();};document.getElementById('fecharAgenda').onclick=fecharModal;document.getElementById('salvarAgenda').onclick=salvar;document.getElementById('agData').onchange=calcularDataFinal;document.getElementById('agTreinamento').onchange=preencherDadosTreinamento;desenhar();if(!configurado())return;try{await Promise.all([carregarTreinamentos(),carregarCadastros()]);preencherSelect('agTreinamento',treinamentos,'nome');prepararBuscaEmpresas();atualizarInstrutores();preencherFiltrosAgenda();await carregarEventos();}catch(e){document.getElementById('avisoAgenda').textContent='Erro ao carregar dados: '+e.message;}};
 })();
