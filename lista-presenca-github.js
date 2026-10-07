@@ -69,7 +69,7 @@ ${cabecalhoDocumento(turma,identidade,'','')}
 ${blocoDados(turma)}
 <div class="secao"><div class="secao-titulo">CONTEÚDO MINISTRADO.</div><div class="secao-corpo"><span class="nome-treinamento">${esc(turma.treinamento||'')}</span>${turma.descricao_treinamento?`<span class="descricao-treinamento">${esc(turma.descricao_treinamento)}</span>`:''}${conteudoHtml(turma.conteudo_programatico||turma.topicos_realizados||'')}</div></div>
 <div class="secao"><div class="secao-titulo">FORMA DE DESENVOLVIMENTO DO TREINAMENTO</div><div class="desenvolvimento">Explicação oral equipamento visual complementar, demonstrações e atividades práticas.</div></div>
-<div class="secao"><div class="secao-titulo">FORMA DE DESENVOLVIMENTO DO TREINAMENTO</div><div class="desenvolvimento">Através da análise global, considero todos aptos a realizarem as funções pré determinadas.</div></div>
+<div class="secao"><div class="secao-titulo">COMENTÁRIOS GERAIS</div><div class="desenvolvimento">Através da análise global, considero todos aptos a realizarem as funções pré determinadas.</div></div>
 <table class="participantes"><thead><tr class="faixa"><th>Nº</th><th>NOME</th><th>CPF</th><th>ASSINATURA</th></tr></thead><tbody>${linhas}</tbody></table>
 ${rodapeDocumento(identidade)}
 </body></html>`;
