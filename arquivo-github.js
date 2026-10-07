@@ -19,6 +19,7 @@
     const estilos=[...doc.querySelectorAll('style')].map(x=>x.textContent).join('\n');
     // Captura o rodapé em qualquer nível do HTML. Não restringir a filho direto do body.
     const rodape=[...doc.querySelectorAll('.rodape-img,.rodape-texto')].map(n=>n.outerHTML).join('');
+    const rodapeSrc=doc.querySelector('.rodape-img img')?.getAttribute('src')||'';
 
     const tabelaMarcador='lista-participantes-paginada';
     tabela.setAttribute('data-pdf-marker',tabelaMarcador);
@@ -29,6 +30,25 @@
     tabelaClone?.replaceWith(marcador);
     [...corpoClone.querySelectorAll('.rodape-img,.rodape-texto')].forEach(n=>n.remove());
     const htmlBase=corpoClone.innerHTML;
+
+    // O html2canvas pode falhar silenciosamente ao desenhar imagens remotas.
+    // Converte o rodapé para data URL antes de montar as páginas do PDF.
+    let rodapeDataUrl='';
+    if(rodapeSrc){
+      try{
+        const resp=await fetch(rodapeSrc,{mode:'cors',cache:'no-store'});
+        if(!resp.ok)throw new Error('HTTP '+resp.status);
+        const blob=await resp.blob();
+        rodapeDataUrl=await new Promise((resolve,reject)=>{
+          const fr=new FileReader();
+          fr.onload=()=>resolve(String(fr.result||''));
+          fr.onerror=()=>reject(fr.error||new Error('Falha ao ler imagem do rodapé.'));
+          fr.readAsDataURL(blob);
+        });
+      }catch(e){
+        console.warn('Não foi possível incorporar o rodapé no PDF:',e);
+      }
+    }
 
     const host=document.createElement('div');
     host.style.cssText='position:fixed;left:-100000px;top:0;width:210mm;background:#fff;z-index:-1';
@@ -46,6 +66,12 @@
         ponto?.replaceWith(t);
       }else{
         p.innerHTML='<style>'+estilos+'<\/style><div class="lista-pdf-fluxo"><table class="participantes">'+cab+'<tbody></tbody></table></div>'+rodape;
+      }
+      if(rodapeDataUrl){
+        p.querySelectorAll('.rodape-img img').forEach(img=>{
+          img.removeAttribute('onerror');
+          img.src=rodapeDataUrl;
+        });
       }
       // Posiciona o rodapé depois que todo o HTML da página já existe.
       // Fazemos diretamente nos elementos para não depender da cascata do CSS original.
