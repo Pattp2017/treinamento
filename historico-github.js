@@ -60,6 +60,11 @@
   }
   async function carregarTudo(){const [e,t,tu,p,a,h,pe]=await Promise.all([supabaseFetch('empresas?ativo=eq.true&select=id,nome&order=nome.asc'),supabaseFetch('treinamento_treinamentos?ativo=eq.true&select=id,nome&order=nome.asc'),supabaseFetch('treinamento_turmas?select=id,codigo,agenda_id,empresa,treinamento,carga_horaria,data_inicio,data_fim,instrutor,habilitacao_instrutor,registro_instrutor,criado_em&order=criado_em.desc&limit=2000'),supabaseFetch('treinamento_turma_participantes?select=turma_id,nome,cpf&order=nome.asc&limit=5000'),supabaseFetch('treinamento_agenda?select=id,id_turma,etapa,data_inicio&limit=2000'),supabaseFetch('treinamento_historico_documentos?select=*&order=criado_em.desc&limit=5000'),supabaseFetch('treinamento_pessoas?select=id,nome,cpf,data_nascimento,genero&limit=5000')]);empresas=e||[];treinamentos=t||[];turmas=tu||[];participantes=p||[];agendas=a||[];historico=h||[];pessoas=pe||[];preencherFiltrosBase();limparResultados();}
   window.registrarHistoricoDocumentoGithub=async item=>{try{return await supabaseFetch('treinamento_historico_documentos',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(item)});}catch(e){console.warn('Falha ao registrar histórico:',e);return null;}};
+  window.abrirCertificadosPendentesGithub=async function(){
+    window.__mostrarCertificadosPendentes=true;
+    const item=[...document.querySelectorAll('.menu-item')].find(x=>x.dataset.modulo==='Historico');
+    if(item)item.click();
+  };
   window.renderHistoricoGithub=async function(){
     const area=document.getElementById('conteudoPrincipal');area.innerHTML=html();
     document.getElementById('btnHistPesquisar').onclick=filtrar;
@@ -70,6 +75,6 @@
     document.getElementById('histParticipante').onchange=()=>{const nome=document.getElementById('histParticipante').value;if(nome){const ps=participantesContextuais(turmasContextuais()).filter(p=>p.nome===nome);if(ps.length===1)document.getElementById('histCpf').value=cpfNum(ps[0].cpf);}limparResultados();};
     document.getElementById('histCpf').onchange=()=>{const c=document.getElementById('histCpf').value;if(c){const ps=participantesContextuais(turmasContextuais()).filter(p=>cpfNum(p.cpf)===cpfNum(c));if(ps.length===1)document.getElementById('histParticipante').value=ps[0].nome;}limparResultados();};
     document.getElementById('histTipo').onchange=limparResultados;document.getElementById('histDataInicial').onchange=limparResultados;document.getElementById('histDataFinal').onchange=limparResultados;
-    try{await carregarTudo();}catch(e){document.getElementById('histMsg').textContent='Erro ao carregar histórico: '+e.message;limparResultados();}
+    try{await carregarTudo();if(window.__mostrarCertificadosPendentes){window.__mostrarCertificadosPendentes=false;document.getElementById('histTipo').value='Certificado';const f=filtrosAtuais();let g=montarGrupos(f).map(x=>({...x,certs:x.certs.filter(c=>!['gerado','reemitido'].includes(norm(c.status)))})).filter(x=>x.certs.length);renderArvore(g,f);renderRelatorio(g);document.getElementById('histMsg').textContent=g.reduce((n,x)=>n+x.certs.length,0)+' certificado(s) pendente(s).';}}catch(e){document.getElementById('histMsg').textContent='Erro ao carregar histórico: '+e.message;limparResultados();}
   };
 })();
