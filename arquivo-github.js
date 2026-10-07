@@ -116,14 +116,17 @@
         let adicionadas=0;
         while(indice<linhas.length){
           corpo.insertAdjacentHTML('beforeend',linhas[indice]);
-          const fimTabela=corpo.closest('table').getBoundingClientRect().bottom-paginaRect.top;
-          if(fimTabela>limite){
-            corpo.lastElementChild?.remove();
+          const linhaInserida=corpo.lastElementChild;
+          const linhaRect=linhaInserida.getBoundingClientRect();
+          const fimLinha=linhaRect.bottom-paginaRect.top;
+          if(fimLinha>limite){
+            linhaInserida.remove();
             break;
           }
           indice++;adicionadas++;
         }
         if(adicionadas===0&&indice<linhas.length){
+          // Segurança contra loop infinito: só força a linha se a página estiver realmente vazia.
           corpo.insertAdjacentHTML('beforeend',linhas[indice]);
           indice++;adicionadas++;
         }
