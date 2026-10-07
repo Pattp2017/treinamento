@@ -6,7 +6,11 @@
     if(!JsPDF||!renderCanvas)throw new Error('Gerador de PDF não carregado.');
     const doc=new DOMParser().parseFromString(html,'text/html');
     [...doc.querySelectorAll('.acoes-print,script')].forEach(x=>x.remove());
-    const tabela=doc.querySelector('table.participantes');
+    const tabelas=[...doc.querySelectorAll('table')];
+    const tabela=tabelas.find(t=>{
+      const cabecalho=(t.querySelector('thead')?.textContent||t.querySelector('tr')?.textContent||'').toUpperCase().replace(/\s+/g,' ');
+      return cabecalho.includes('Nº')&&cabecalho.includes('NOME')&&cabecalho.includes('CPF')&&cabecalho.includes('ASSINATURA');
+    })||doc.querySelector('table.participantes');
     const tbody=tabela?.querySelector('tbody');
     if(!tabela||!tbody)return htmlParaPdf(html,'portrait');
 
