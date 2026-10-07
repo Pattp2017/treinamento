@@ -1,6 +1,6 @@
 (() => {
   function limparNome(v){return String(v||'arquivo').normalize('NFC').replace(/[<>:"/\\|?*\x00-\x1F]/g,' ').replace(/[. ]+$/g,'').replace(/\s+/g,' ').trim()||'arquivo';}
-  async function gravar(dir,nome,blob){const arq=await dir.getFileHandle(limparNome(nome),{create:true});const w=await arq.createWritable();await w.write(blob);await w.close();}
+  async function gravar(dir,nome,blob){const arq=await dir.getFileHandle(limparNome(nome),{create:true});let w;try{w=await arq.createWritable();await w.write(blob);await w.close();}catch(e){try{await w?.abort();}catch(_){}if(e?.name==='InvalidStateError')throw new Error('O arquivo está aberto ou bloqueado. Feche PDFs/arquivos desta pasta e tente novamente.');throw e;}}
   async function htmlListaParaPdf(html){
     const JsPDF=window.jspdf?.jsPDF||window.jsPDF,renderCanvas=window.html2canvas;
     if(!JsPDF||!renderCanvas)throw new Error('Gerador de PDF não carregado.');
