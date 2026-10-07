@@ -37,18 +37,34 @@
       const p=document.createElement('div');
       p.className='lista-pdf-pagina';
       p.style.cssText='width:210mm;height:297mm;padding:12.7mm 12.7mm 16mm;box-sizing:border-box;background:#fff;position:relative;overflow:hidden;font-family:Arial,sans-serif;color:#111;font-size:10px';
-      // CSS do rodapé precisa ser inserido JUNTO do innerHTML abaixo.
-      // Se for inserido antes, o próprio innerHTML apaga a regra.
-      const cssRodape='<style>.lista-pdf-pagina>.rodape-img,.lista-pdf-pagina>.rodape-texto{position:absolute!important;left:12.7mm!important;right:12.7mm!important;bottom:4mm!important;height:11mm!important;margin:0!important;background:#fff!important}.lista-pdf-pagina>.rodape-img img{display:block!important;width:100%!important;height:11mm!important;object-fit:contain!important;object-position:center bottom!important}</style>';
       if(primeira){
-        p.innerHTML='<style>'+estilos+'<\/style>'+cssRodape+'<div class="lista-pdf-fluxo">'+htmlBase+'</div>'+rodape;
+        p.innerHTML='<style>'+estilos+'<\/style><div class="lista-pdf-fluxo">'+htmlBase+'</div>'+rodape;
         const fluxo=p.querySelector('.lista-pdf-fluxo');
         const ponto=fluxo.querySelector('[data-pdf-inserir-tabela="1"]');
         const t=doc.createElement('table');t.className='participantes';t.innerHTML=cab+'<tbody></tbody>';
         ponto?.replaceWith(t);
       }else{
-        p.innerHTML='<style>'+estilos+'<\/style>'+cssRodape+'<div class="lista-pdf-fluxo"><table class="participantes">'+cab+'<tbody></tbody></table></div>'+rodape;
+        p.innerHTML='<style>'+estilos+'<\/style><div class="lista-pdf-fluxo"><table class="participantes">'+cab+'<tbody></tbody></table></div>'+rodape;
       }
+      // Posiciona o rodapé depois que todo o HTML da página já existe.
+      // Fazemos diretamente nos elementos para não depender da cascata do CSS original.
+      [...p.querySelectorAll(':scope > .rodape-img,:scope > .rodape-texto')].forEach(r=>{
+        r.style.setProperty('position','absolute','important');
+        r.style.setProperty('left','12.7mm','important');
+        r.style.setProperty('right','12.7mm','important');
+        r.style.setProperty('bottom','4mm','important');
+        r.style.setProperty('height','11mm','important');
+        r.style.setProperty('margin','0','important');
+        r.style.setProperty('background','#fff','important');
+        const img=r.querySelector('img');
+        if(img){
+          img.style.setProperty('display','block','important');
+          img.style.setProperty('width','100%','important');
+          img.style.setProperty('height','11mm','important');
+          img.style.setProperty('object-fit','contain','important');
+          img.style.setProperty('object-position','center bottom','important');
+        }
+      });
       host.appendChild(p);
       return p;
     }
