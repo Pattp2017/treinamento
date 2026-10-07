@@ -65,7 +65,7 @@ th,td{border:1px solid #222;padding:4px 6px;vertical-align:middle}
 @media print{.acoes-print{display:none}}
 </style></head><body>
 <div class="acoes-print"><button onclick="window.print()">Imprimir / Salvar PDF</button></div>
-${cabecalhoDocumento(turma,identidade,'','')}
+${cabecalhoDocumento(turma,identidade,'1','1')}
 ${blocoDados(turma)}
 <div class="secao"><div class="secao-titulo">CONTEÚDO MINISTRADO.</div><div class="secao-corpo"><span class="nome-treinamento">${esc(turma.treinamento||'')}</span>${turma.descricao_treinamento?`<span class="descricao-treinamento">${esc(turma.descricao_treinamento)}</span>`:''}${conteudoHtml(turma.conteudo_programatico||turma.topicos_realizados||'')}</div></div>
 <div class="secao"><div class="secao-titulo">FORMA DE DESENVOLVIMENTO DO TREINAMENTO</div><div class="desenvolvimento">Explicação oral equipamento visual complementar, demonstrações e atividades práticas.</div></div>
