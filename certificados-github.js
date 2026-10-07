@@ -35,10 +35,21 @@
     document.getElementById('fecharCertificados').onclick=fechar;document.getElementById('voltarCertificados').onclick=fechar;
     checks().forEach(c=>c.onchange=atualizarSelecao);
     document.getElementById('certSelecionarTodos').onchange=e=>{checks().forEach(c=>c.checked=e.target.checked);atualizarSelecao();};
-    modal.querySelectorAll('.btnCertIndividual').forEach(b=>b.onclick=()=>abrirDocumento(htmlCertificado(turma,participantes[Number(b.dataset.i)],identidade)));
-    document.getElementById('gerarCertificadosLote').onclick=()=>{const selecionados=checks().filter(c=>c.checked).map(c=>participantes[Number(c.dataset.i)]);if(!selecionados.length)return alert('Selecione pelo menos um participante.');abrirDocumento(htmlLote(turma,selecionados,identidade));};
+    modal.querySelectorAll('.btnCertIndividual').forEach(b=>b.onclick=async()=>{const p=participantes[Number(b.dataset.i)];abrirDocumento(htmlCertificado(turma,p,identidade));try{await window.registrarCertificadoGeradoGithub(turma,p);}catch(e){console.warn('Falha ao marcar certificado como gerado:',e);}});
+    document.getElementById('gerarCertificadosLote').onclick=async()=>{const selecionados=checks().filter(c=>c.checked).map(c=>participantes[Number(c.dataset.i)]);if(!selecionados.length)return alert('Selecione pelo menos um participante.');abrirDocumento(htmlLote(turma,selecionados,identidade));for(const p of selecionados){try{await window.registrarCertificadoGeradoGithub(turma,p);}catch(e){console.warn('Falha ao marcar certificado como gerado:',e);}}};
     document.getElementById('concluirCertificados').onclick=async()=>{try{const filtro=ev.id?'id=eq.'+encodeURIComponent(ev.id):'codigo=eq.'+encodeURIComponent(ev.codigo);await supabaseFetch('treinamento_agenda?'+filtro,{method:'PATCH',body:JSON.stringify({etapa:4,status:'Concluído',atualizado_em:new Date().toISOString()})});fechar();alert('Certificados concluídos. A Agenda avançou para a etapa 4.');if(window.renderAgendaGithub)await window.renderAgendaGithub();}catch(e){alert('Erro ao concluir certificados: '+e.message);}};
   }
-  window.obterCertificadosGithub=async function(ev){const d=await carregar(ev);return{...d,documentos:d.participantes.map(p=>({nome:p.nome,html:htmlCertificado(d.turma,p,d.identidade)}))};};
+  window.registrarCertificadoGeradoGithub=async function(turma,participante){
+    const turmaId=turma?.id||turma?.turma_id;
+    const cpfLimpo=String(participante?.cpf||'').replace(/\D/g,'');
+    if(!turmaId||!cpfLimpo)return null;
+    const existentes=await supabaseFetch('treinamento_historico_documentos?turma_id=eq.'+encodeURIComponent(turmaId)+'&tipo=eq.Certificado&cpf=eq.'+encodeURIComponent(cpfLimpo)+'&select=id,status&order=criado_em.desc&limit=1');
+    const agora=new Date().toISOString();
+    if(existentes?.length){
+      return await supabaseFetch('treinamento_historico_documentos?id=eq.'+encodeURIComponent(existentes[0].id),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({status:'Reemitido',criado_em:agora})});
+    }
+    return await supabaseFetch('treinamento_historico_documentos',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({turma_id:turmaId,tipo:'Certificado',cpf:cpfLimpo,status:'Gerado',criado_em:agora})});
+  };
+  window.obterCertificadosGithub=async function(ev){const d=await carregar(ev);return{...d,documentos:d.participantes.map(p=>({nome:p.nome,cpf:p.cpf,participante:p,html:htmlCertificado(d.turma,p,d.identidade)}))};};
   window.abrirCertificadosGithub=async function(ev){try{const d=await carregar(ev);render(ev,d.turma,d.participantes,d.identidade);}catch(e){alert('Erro ao abrir certificados: '+e.message);}};
 })();
