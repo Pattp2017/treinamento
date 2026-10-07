@@ -19,24 +19,15 @@
     const estilos=[...doc.querySelectorAll('style')].map(x=>x.textContent).join('\n');
     // Captura o rodapé em qualquer nível do HTML. Não restringir a filho direto do body.
     const rodape=[...doc.querySelectorAll('.rodape-img,.rodape-texto')].map(n=>n.outerHTML).join('');
-    const rodapeSrc=doc.querySelector('.rodape-img img')?.getAttribute('src')||'';
+    const rodapeSrcConfigurado=doc.querySelector('.rodape-img img')?.getAttribute('src')||'';
+    const rodapeSrcPadrao=new URL('assets/Rodap%C3%A9_atualizado.png',window.location.href).href;
 
-    const tabelaMarcador='lista-participantes-paginada';
-    tabela.setAttribute('data-pdf-marker',tabelaMarcador);
-    const corpoClone=doc.body.cloneNode(true);
-    const tabelaClone=corpoClone.querySelector('[data-pdf-marker="'+tabelaMarcador+'"]');
-    const marcador=doc.createElement('div');
-    marcador.setAttribute('data-pdf-inserir-tabela','1');
-    tabelaClone?.replaceWith(marcador);
-    [...corpoClone.querySelectorAll('.rodape-img,.rodape-texto')].forEach(n=>n.remove());
-    const htmlBase=corpoClone.innerHTML;
-
-    // O html2canvas pode falhar silenciosamente ao desenhar imagens remotas.
-    // Converte o rodapé para data URL antes de montar as páginas do PDF.
+    // Para o PDF automático, usamos primeiro o rodapé configurado.
+    // Se ele não existir ou não puder ser carregado, usamos o arquivo fixo do repositório.
     let rodapeDataUrl='';
-    if(rodapeSrc){
+    for(const src of [rodapeSrcConfigurado,rodapeSrcPadrao].filter(Boolean)){
       try{
-        const resp=await fetch(rodapeSrc,{mode:'cors',cache:'no-store'});
+        const resp=await fetch(src,{cache:'no-store'});
         if(!resp.ok)throw new Error('HTTP '+resp.status);
         const blob=await resp.blob();
         rodapeDataUrl=await new Promise((resolve,reject)=>{
@@ -45,8 +36,9 @@
           fr.onerror=()=>reject(fr.error||new Error('Falha ao ler imagem do rodapé.'));
           fr.readAsDataURL(blob);
         });
+        if(rodapeDataUrl)break;
       }catch(e){
-        console.warn('Não foi possível incorporar o rodapé no PDF:',e);
+        console.warn('Falha ao carregar rodapé para PDF:',src,e);
       }
     }
 
