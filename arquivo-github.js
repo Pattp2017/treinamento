@@ -6,34 +6,68 @@
     if(!JsPDF||!renderCanvas)throw new Error('Gerador de PDF não carregado.');
     const doc=new DOMParser().parseFromString(html,'text/html');
     [...doc.querySelectorAll('.acoes-print,script')].forEach(x=>x.remove());
-    const tabela=doc.querySelector('table.participantes'),tbody=tabela?.querySelector('tbody');
+    const tabela=doc.querySelector('table.participantes');
+    const tbody=tabela?.querySelector('tbody');
     if(!tabela||!tbody)return htmlParaPdf(html,'portrait');
+
     const linhas=[...tbody.querySelectorAll('tr')].map(x=>x.outerHTML);
-    const antes=[];for(const n of [...doc.body.childNodes]){if(n===tabela)break;if(!n.classList?.contains('rodape-img')&&!n.classList?.contains('rodape-texto'))antes.push(n.outerHTML||n.textContent);}const conteudoAntes=antes.join('');
-    const rodape=[...doc.body.querySelectorAll('.rodape-img,.rodape-texto')].map(n=>n.outerHTML).join('');
     const cab=tabela.querySelector('thead')?.outerHTML||'';
     const estilos=[...doc.querySelectorAll('style')].map(x=>x.textContent).join('\n');
-    const criarPagina=(conteudo,rows,primeira)=>{const p=document.createElement('div');p.style.cssText='width:210mm;height:297mm;padding:12.7mm;box-sizing:border-box;background:#fff;position:relative;overflow:hidden;font-family:Arial,sans-serif;color:#111;font-size:10px';p.innerHTML='<style>'+estilos+'<\/style><div class="lista-pagina-conteudo">'+(primeira?conteudo:'')+'<table class="participantes">'+cab+'<tbody>'+rows.join('')+'</tbody></table></div>'+rodape;return p;};
-    const host=document.createElement('div');host.style.cssText='position:fixed;left:-100000px;top:0;background:#fff;z-index:-1';document.body.appendChild(host);
-    const paginas=[];let restantes=[...linhas],primeira=true;
+    const rodape=[...doc.body.querySelectorAll(':scope > .rodape-img,:scope > .rodape-texto')].map(n=>n.outerHTML).join('');
+
+    const prefixo=[];
+    for(const n of [...doc.body.childNodes]){
+      if(n===tabela)break;
+      if(n.nodeType===1&&(n.matches('.rodape-img,.rodape-texto')))continue;
+      prefixo.push(n.outerHTML||n.textContent||'');
+    }
+    const htmlPrefixo=prefixo.join('');
+
+    const host=document.createElement('div');
+    host.style.cssText='position:fixed;left:-100000px;top:0;width:210mm;background:#fff;z-index:-1';
+    document.body.appendChild(host);
+
+    function novaPagina(primeira){
+      const p=document.createElement('div');
+      p.className='lista-pdf-pagina';
+      p.style.cssText='width:210mm;height:297mm;padding:12.7mm;box-sizing:border-box;background:#fff;position:relative;overflow:hidden;font-family:Arial,sans-serif;color:#111;font-size:10px';
+      p.innerHTML='<style>'+estilos+'<\/style><div class="lista-pdf-fluxo">'+(primeira?htmlPrefixo:'')+'<table class="participantes">'+cab+'<tbody></tbody></table></div>'+rodape;
+      host.appendChild(p);
+      return p;
+    }
+
+    const paginas=[];
+    let indice=0,primeira=true;
     try{
-      while(restantes.length){
-        let usados=[];
-        const pagina=criarPagina(conteudoAntes,usados,primeira);host.appendChild(pagina);
+      while(indice<linhas.length){
+        const pagina=novaPagina(primeira);
         await Promise.all([...pagina.querySelectorAll('img')].map(img=>img.complete?Promise.resolve():new Promise(r=>{img.onload=img.onerror=r;})));
-        const area=pagina.querySelector('.lista-pagina-conteudo');
-        const limite=pagina.clientHeight-48;
-        while(restantes.length){
-          usados.push(restantes.shift());
-          pagina.querySelector('tbody').innerHTML=usados.join('');
-          if(area.scrollHeight>limite){restantes.unshift(usados.pop());pagina.querySelector('tbody').innerHTML=usados.join('');break;}
+        const fluxo=pagina.querySelector('.lista-pdf-fluxo');
+        const corpo=pagina.querySelector('tbody');
+        const limite=pagina.clientHeight-96;
+        let adicionadas=0;
+        while(indice<linhas.length){
+          corpo.insertAdjacentHTML('beforeend',linhas[indice]);
+          if(fluxo.scrollHeight>limite){
+            corpo.lastElementChild?.remove();
+            break;
+          }
+          indice++;adicionadas++;
         }
-        if(!usados.length&&restantes.length)usados.push(restantes.shift());
-        pagina.querySelector('tbody').innerHTML=usados.join('');
-        paginas.push(pagina);primeira=false;
+        if(adicionadas===0&&indice<linhas.length){
+          corpo.insertAdjacentHTML('beforeend',linhas[indice]);
+          indice++;adicionadas++;
+        }
+        paginas.push(pagina);
+        primeira=false;
       }
+
       const pdf=new JsPDF({unit:'mm',format:'a4',orientation:'portrait'});
-      for(let i=0;i<paginas.length;i++){const canvas=await renderCanvas(paginas[i],{scale:2,useCORS:true,backgroundColor:'#ffffff',width:paginas[i].scrollWidth,height:paginas[i].scrollHeight});if(i)pdf.addPage('a4','portrait');pdf.addImage(canvas.toDataURL('image/jpeg',.98),'JPEG',0,0,210,297);}
+      for(let i=0;i<paginas.length;i++){
+        const canvas=await renderCanvas(paginas[i],{scale:2,useCORS:true,backgroundColor:'#ffffff',width:paginas[i].scrollWidth,height:paginas[i].scrollHeight});
+        if(i)pdf.addPage('a4','portrait');
+        pdf.addImage(canvas.toDataURL('image/jpeg',.98),'JPEG',0,0,210,297);
+      }
       return pdf.output('blob');
     }finally{host.remove();}
   }
