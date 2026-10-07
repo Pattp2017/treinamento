@@ -36,7 +36,10 @@
     function novaPagina(primeira){
       const p=document.createElement('div');
       p.className='lista-pdf-pagina';
-      p.style.cssText='width:210mm;height:297mm;padding:12.7mm;box-sizing:border-box;background:#fff;position:relative;overflow:hidden;font-family:Arial,sans-serif;color:#111;font-size:10px';
+      p.style.cssText='width:210mm;height:297mm;padding:12.7mm 12.7mm 16mm;box-sizing:border-box;background:#fff;position:relative;overflow:hidden;font-family:Arial,sans-serif;color:#111;font-size:10px';
+      // O rodapé fica preso ao final da folha A4, sem participar do fluxo do conteúdo.
+      // A área útil termina antes dele para impedir sobreposição com participantes.
+      p.insertAdjacentHTML('afterbegin','<style>.lista-pdf-pagina>.rodape-img,.lista-pdf-pagina>.rodape-texto{position:absolute!important;left:12.7mm!important;right:12.7mm!important;bottom:4mm!important;height:11mm!important;margin:0!important;background:#fff!important}.lista-pdf-pagina>.rodape-img img{display:block!important;width:100%!important;height:11mm!important;object-fit:contain!important;object-position:center bottom!important}</style>');
       if(primeira){
         p.innerHTML='<style>'+estilos+'<\/style><div class="lista-pdf-fluxo">'+htmlBase+'</div>'+rodape;
         const fluxo=p.querySelector('.lista-pdf-fluxo');
@@ -58,7 +61,8 @@
         await Promise.all([...pagina.querySelectorAll('img')].map(img=>img.complete?Promise.resolve():new Promise(r=>{img.onload=img.onerror=r;})));
         const fluxo=pagina.querySelector('.lista-pdf-fluxo');
         const corpo=pagina.querySelector('table.participantes tbody');
-        const limite=pagina.clientHeight-96;
+        // Reserva 16 mm na base da página para o rodapé e sua folga.
+        const limite=pagina.clientHeight-(16/25.4*96);
         let adicionadas=0;
         while(indice<linhas.length){
           corpo.insertAdjacentHTML('beforeend',linhas[indice]);
