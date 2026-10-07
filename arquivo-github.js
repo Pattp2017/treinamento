@@ -112,7 +112,7 @@
         // O limite real é o topo do rodapé. Assim nenhuma linha pode ficar escondida atrás dele.
         const rodapeEl=pagina.querySelector('.rodape-img,.rodape-texto');
         const paginaRect=pagina.getBoundingClientRect();
-        const limite=rodapeEl?rodapeEl.getBoundingClientRect().top-paginaRect.top-78:pagina.clientHeight-(38/25.4*96);
+        const limite=rodapeEl?rodapeEl.getBoundingClientRect().top-paginaRect.top-52:pagina.clientHeight-(31/25.4*96);
         let adicionadas=0;
         while(indice<linhas.length){
           corpo.insertAdjacentHTML('beforeend',linhas[indice]);
