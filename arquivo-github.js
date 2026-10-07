@@ -182,6 +182,7 @@
         progresso('Gerando certificado '+(++n)+' de '+certs.documentos.length+'...');
         const pdf=await htmlParaPdf(d.html,'landscape');
         await gravar(pastaCert,limparNome(d.nome)+'.pdf',pdf);
+        if(window.registrarCertificadoGeradoGithub)await window.registrarCertificadoGeradoGithub(certs.turma,d.participante||{nome:d.nome,cpf:d.cpf});
       }
     }
   };
@@ -207,6 +208,7 @@
         atualizarStatus('Gerando certificado '+(++n)+' de '+certs.documentos.length+'...');
         const pdf=await htmlParaPdf(d.html,'landscape');
         await gravar(pastaCert,limparNome(d.nome)+'.pdf',pdf);
+        if(window.registrarCertificadoGeradoGithub)await window.registrarCertificadoGeradoGithub(certs.turma,d.participante||{nome:d.nome,cpf:d.cpf});
       }
       if(pastaIT12&&lista.htmlAtestadoIT12){atualizarStatus('Gerando atestado IT 12...');const pdfAtestado=await htmlParaPdf(lista.htmlAtestadoIT12,'portrait');await gravar(pastaIT12,'ATESTADO DE FORMAÇÃO DE BRIGADA DE INCÊNDIO.pdf',pdfAtestado);}
       aviso.remove();alert('Pasta atualizada com sucesso. Arquivos com o mesmo nome foram substituídos.');
