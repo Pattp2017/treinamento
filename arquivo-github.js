@@ -20,7 +20,7 @@
     // Captura o rodapé em qualquer nível do HTML. Não restringir a filho direto do body.
     const rodape=[...doc.querySelectorAll('.rodape-img,.rodape-texto')].map(n=>n.outerHTML).join('');
     const rodapeSrcConfigurado=doc.querySelector('.rodape-img img')?.getAttribute('src')||'';
-    const rodapeSrcPadrao=new URL('assets/Rodap%C3%A9_atualizado.png',window.location.href).href;
+    const rodapeSrcPadrao='https://raw.githubusercontent.com/Pattp2017/treinamento/main/assets/Rodap%C3%A9_atualizado.png';
 
     // Para o PDF automático, usamos primeiro o rodapé configurado.
     // Se ele não existir ou não puder ser carregado, usamos o arquivo fixo do repositório.
