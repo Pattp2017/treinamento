@@ -1,6 +1,42 @@
 (() => {
   function limparNome(v){return String(v||'arquivo').normalize('NFC').replace(/[<>:"/\\|?*\x00-\x1F]/g,' ').replace(/[. ]+$/g,'').replace(/\s+/g,' ').trim()||'arquivo';}
   async function gravar(dir,nome,blob){const arq=await dir.getFileHandle(limparNome(nome),{create:true});const w=await arq.createWritable();await w.write(blob);await w.close();}
+  async function htmlListaParaPdf(html){
+    const JsPDF=window.jspdf?.jsPDF||window.jsPDF,renderCanvas=window.html2canvas;
+    if(!JsPDF||!renderCanvas)throw new Error('Gerador de PDF não carregado.');
+    const doc=new DOMParser().parseFromString(html,'text/html');
+    [...doc.querySelectorAll('.acoes-print,script')].forEach(x=>x.remove());
+    const tabela=doc.querySelector('table.participantes'),tbody=tabela?.querySelector('tbody');
+    if(!tabela||!tbody)return htmlParaPdf(html,'portrait');
+    const linhas=[...tbody.querySelectorAll('tr')].map(x=>x.outerHTML);
+    const antes=[...doc.body.childNodes].filter(n=>n!==tabela&&!n.classList?.contains('rodape-img')&&!n.classList?.contains('rodape-texto')).map(n=>n.outerHTML||n.textContent).join('');
+    const rodape=[...doc.body.querySelectorAll('.rodape-img,.rodape-texto')].map(n=>n.outerHTML).join('');
+    const cab=tabela.querySelector('thead')?.outerHTML||'';
+    const estilos=[...doc.querySelectorAll('style')].map(x=>x.textContent).join('\n');
+    const criarPagina=(conteudo,rows,primeira)=>{const p=document.createElement('div');p.style.cssText='width:210mm;height:297mm;padding:12.7mm;box-sizing:border-box;background:#fff;position:relative;overflow:hidden;font-family:Arial,sans-serif;color:#111;font-size:10px';p.innerHTML='<style>'+estilos+'<\/style><div class="lista-pagina-conteudo">'+(primeira?conteudo:'')+'<table class="participantes">'+cab+'<tbody>'+rows.join('')+'</tbody></table></div>'+rodape;return p;};
+    const host=document.createElement('div');host.style.cssText='position:fixed;left:-100000px;top:0;background:#fff;z-index:-1';document.body.appendChild(host);
+    const paginas=[];let restantes=[...linhas],primeira=true;
+    try{
+      while(restantes.length){
+        let usados=[];
+        const pagina=criarPagina(antes,usados,primeira);host.appendChild(pagina);
+        await Promise.all([...pagina.querySelectorAll('img')].map(img=>img.complete?Promise.resolve():new Promise(r=>{img.onload=img.onerror=r;})));
+        const area=pagina.querySelector('.lista-pagina-conteudo');
+        const limite=pagina.clientHeight-48;
+        while(restantes.length){
+          usados.push(restantes.shift());
+          pagina.querySelector('tbody').innerHTML=usados.join('');
+          if(area.scrollHeight>limite){restantes.unshift(usados.pop());pagina.querySelector('tbody').innerHTML=usados.join('');break;}
+        }
+        if(!usados.length&&restantes.length)usados.push(restantes.shift());
+        pagina.querySelector('tbody').innerHTML=usados.join('');
+        paginas.push(pagina);primeira=false;
+      }
+      const pdf=new JsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+      for(let i=0;i<paginas.length;i++){const canvas=await renderCanvas(paginas[i],{scale:2,useCORS:true,backgroundColor:'#ffffff',width:paginas[i].scrollWidth,height:paginas[i].scrollHeight});if(i)pdf.addPage('a4','portrait');pdf.addImage(canvas.toDataURL('image/jpeg',.98),'JPEG',0,0,210,297);}
+      return pdf.output('blob');
+    }finally{host.remove();}
+  }
   async function htmlParaPdf(html,orientacao='portrait'){
     if(!window.html2pdf)throw new Error('Gerador de PDF não carregado.');
     const box=document.createElement('div');box.style.cssText='position:fixed;left:-100000px;top:0;background:#fff;z-index:-1';
@@ -25,7 +61,7 @@
       const pastaCert=await pastaCertRaiz.getDirectoryHandle(limparNome(lista.turma.treinamento||'Treinamento'),{create:true});
       const pastaIT12=lista.ehIT12?await raiz.getDirectoryHandle('04) IT 12',{create:true}):null;
       document.getElementById('statusArquivo').textContent='Gerando lista de presença...';
-      const pdfLista=await htmlParaPdf(lista.html,'portrait');
+      const pdfLista=await htmlListaParaPdf(lista.html);
       await gravar(pastaLista,limparNome(lista.turma.treinamento||'Lista de Presença')+'.pdf',pdfLista);
       let n=0;
       for(const d of certs.documentos){
