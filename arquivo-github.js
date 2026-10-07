@@ -148,6 +148,37 @@
     try{if(orientacao==='landscape'){const pags=[...corpo.querySelectorAll('.pagina')];const JsPDF=window.jspdf?.jsPDF||window.jsPDF;if(!JsPDF)throw new Error('jsPDF não carregado.');const pdf=new JsPDF({unit:'mm',format:'a4',orientation:'landscape'});for(let i=0;i<pags.length;i++){const renderCanvas=window.html2canvas;if(!renderCanvas)throw new Error('html2canvas não carregado.');const canvas=await renderCanvas(pags[i],{scale:2,useCORS:true,backgroundColor:'#ffffff',width:pags[i].scrollWidth,height:pags[i].scrollHeight});if(i>0)pdf.addPage('a4','landscape');pdf.addImage(canvas.toDataURL('image/jpeg',.98),'JPEG',0,0,297,210);}return pdf.output('blob');}return await html2pdf().set({margin:0,filename:'documento.pdf',image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:orientacao},pagebreak:{mode:['css']}}).from(corpo).outputPdf('blob');}
     finally{box.remove();}
   }
+  window.gerarTreinamentoLoteGithub=async function(ev,raiz,opcoes={},progresso=()=>{}){
+    const gerarLista=opcoes.lista!==false,gerarCert=opcoes.certificados!==false;
+    if(!gerarLista&&!gerarCert)return;
+    let lista=null,certs=null;
+    if(gerarLista&&gerarCert)[lista,certs]=await Promise.all([window.obterListaPresencaGithub(ev),window.obterCertificadosGithub(ev)]);
+    else if(gerarLista)lista=await window.obterListaPresencaGithub(ev);
+    else certs=await window.obterCertificadosGithub(ev);
+    const nomeTreinamento=(lista?.turma?.treinamento||certs?.turma?.treinamento||ev.treinamento||'Treinamento');
+    if(gerarLista){
+      progresso('Gerando lista de presença...');
+      const pastaLista=await raiz.getDirectoryHandle('01) Lista de Presença',{create:true});
+      const pdfLista=await htmlListaParaPdf(lista.html);
+      await gravar(pastaLista,limparNome(nomeTreinamento)+'.pdf',pdfLista);
+      if(lista.ehIT12&&lista.htmlAtestadoIT12){
+        progresso('Gerando atestado IT 12...');
+        const pastaIT12=await raiz.getDirectoryHandle('04) IT 12',{create:true});
+        const pdfAtestado=await htmlParaPdf(lista.htmlAtestadoIT12,'portrait');
+        await gravar(pastaIT12,'ATESTADO DE FORMAÇÃO DE BRIGADA DE INCÊNDIO.pdf',pdfAtestado);
+      }
+    }
+    if(gerarCert){
+      const pastaCertRaiz=await raiz.getDirectoryHandle('03) Certificados',{create:true});
+      const pastaCert=await pastaCertRaiz.getDirectoryHandle(limparNome(nomeTreinamento),{create:true});
+      let n=0;
+      for(const d of certs.documentos){
+        progresso('Gerando certificado '+(++n)+' de '+certs.documentos.length+'...');
+        const pdf=await htmlParaPdf(d.html,'landscape');
+        await gravar(pastaCert,limparNome(d.nome)+'.pdf',pdf);
+      }
+    }
+  };
   window.arquivarTreinamentoGithub=async function(ev){
     if(!window.showDirectoryPicker)return alert('Seu navegador não permite selecionar pastas. Use Chrome ou Edge atualizado.');
     let raiz;
