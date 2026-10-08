@@ -72,6 +72,9 @@
           <label class="full">Endereço<input id="cfgEndereco" readonly value="${esc(c?.endereco||'')}"></label>
           <label class="full">Logo - URL pública<input id="cfgLogo" type="url" placeholder="https://..." value="${esc(c?.logo_url||'')}"></label>
           <label class="full">Imagem de rodapé - URL pública<input id="cfgRodape" type="url" placeholder="https://..." value="${esc(c?.rodape_url||'')}"><small style="display:block;margin-top:5px;color:#6c757d;font-weight:normal">Use uma imagem horizontal própria para o rodapé dos documentos.</small></label>
+          <label class="full">Marca-d'água - URL pública (PNG transparente recomendado)<input id="cfgMarcaDagua" type="url" placeholder="https://..." value="${esc(c?.marca_dagua_url||'')}"><small style="display:block;margin-top:5px;color:#6c757d;font-weight:normal">Utilizada nos relatórios de visita SST. Para salvar, execute antes a migração SQL dos novos campos.</small></label>
+          <label>Opacidade da marca-d'água (%)<input id="cfgMarcaOpacidade" type="number" min="5" max="30" step="1" value="${Math.round(Number(c?.marca_dagua_opacidade??0.12)*100)}"></label>
+          <label>Posição da marca-d'água<select id="cfgMarcaPosicao"><option value="laterais" ${(c?.marca_dagua_posicao||'laterais')==='laterais'?'selected':''}>Laterais (modelo timbrado)</option><option value="centro" ${c?.marca_dagua_posicao==='centro'?'selected':''}>Centro</option><option value="esquerda" ${c?.marca_dagua_posicao==='esquerda'?'selected':''}>Esquerda</option><option value="direita" ${c?.marca_dagua_posicao==='direita'?'selected':''}>Direita</option></select></label>
         </div>
         <div id="previewIdentidade" style="margin-top:18px;border:1px solid #dde6e3;border-radius:12px;padding:16px;min-height:100px"></div>
       </div>
@@ -121,9 +124,11 @@
     const box=document.getElementById('previewIdentidade'); if(!box)return;
     const logo=document.getElementById('cfgLogo').value.trim();
     const rodape=document.getElementById('cfgRodape').value.trim();
+    const marca=document.getElementById('cfgMarcaDagua').value.trim();
+    const op=Math.min(30,Math.max(5,Number(document.getElementById('cfgMarcaOpacidade').value||12)))/100;
     const nome=document.getElementById('cfgNome').value.trim()||'Nome da empresa';
     const sub=document.getElementById('cfgSubtitulo').value.trim();
-    box.innerHTML=`<div style="display:flex;gap:18px;align-items:center">${logo?`<img src="${esc(urlImagem(logo))}" alt="Logo" style="max-width:180px;max-height:80px;object-fit:contain" onerror="this.style.display='none'">`:'<div style="width:130px;height:60px;border:1px dashed #b8c4c0;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#89938f">LOGO</div>'}<div><strong style="font-size:20px">${esc(nome)}</strong>${sub?`<div style="margin-top:5px;color:#6c757d">${esc(sub)}</div>`:''}</div></div>${rodape?`<div style="margin-top:16px;padding-top:12px;border-top:1px solid #dde6e3"><img src="${esc(urlImagem(rodape))}" alt="Rodapé" style="width:100%;max-height:100px;object-fit:contain;object-position:left center" onerror="this.style.display='none'"></div>`:''}`;
+    box.innerHTML=`<div style="position:relative;overflow:hidden;min-height:130px"><div style="position:relative;z-index:1;display:flex;gap:18px;align-items:center">${logo?`<img src="${esc(urlImagem(logo))}" alt="Logo" style="max-width:180px;max-height:80px;object-fit:contain" onerror="this.style.display='none'">`:'<div style="width:130px;height:60px;border:1px dashed #b8c4c0;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#89938f">LOGO</div>'}<div><strong style="font-size:20px">${esc(nome)}</strong>${sub?`<div style="margin-top:5px;color:#6c757d">${esc(sub)}</div>`:''}</div></div>${rodape?`<div style="margin-top:16px;padding-top:12px;border-top:1px solid #dde6e3"><img src="${esc(urlImagem(rodape))}" alt="Rodapé" style="width:100%;max-height:100px;object-fit:contain;object-position:left center" onerror="this.style.display='none'"></div>`:''}`;
   }
 
   function atualizarCamposCertificado(){
@@ -162,6 +167,9 @@
       subtitulo:document.getElementById('cfgSubtitulo').value.trim()||null,
       logo_url:document.getElementById('cfgLogo').value.trim()||null,
       rodape_url:document.getElementById('cfgRodape').value.trim()||null,
+      marca_dagua_url:document.getElementById('cfgMarcaDagua').value.trim()||null,
+      marca_dagua_opacidade:Math.min(30,Math.max(5,Number(document.getElementById('cfgMarcaOpacidade').value||12)))/100,
+      marca_dagua_posicao:document.getElementById('cfgMarcaPosicao').value,
       cor_principal:document.getElementById('cfgCor').value||'#0b8f43',
       certificado_modelo:document.getElementById('cfgCertModelo').value,
       certificado_logo_url:document.getElementById('cfgCertLogo').value.trim()||null,
@@ -221,6 +229,9 @@
         document.getElementById('cfgCor').value=conf?.cor_principal||'#0b8f43';
         document.getElementById('cfgLogo').value=conf?.logo_url||'';
         document.getElementById('cfgRodape').value=conf?.rodape_url||'';
+        document.getElementById('cfgMarcaDagua').value=conf?.marca_dagua_url||'';
+        document.getElementById('cfgMarcaOpacidade').value=String(Math.round(Number(conf?.marca_dagua_opacidade??0.12)*100));
+        document.getElementById('cfgMarcaPosicao').value=conf?.marca_dagua_posicao||'laterais';
         document.getElementById('cfgCertModelo').value=conf?.certificado_modelo||'padrao';
         document.getElementById('cfgCertLogo').value=conf?.certificado_logo_url||'';
         document.getElementById('cfgCertFrente').value=conf?.certificado_frente_url||'';
@@ -231,7 +242,7 @@
         atualizarPreview();
         atualizarPreviewAssinatura();
       };
-      ['cfgNome','cfgSubtitulo','cfgLogo','cfgRodape'].forEach(id=>document.getElementById(id).addEventListener('input',atualizarPreview));
+      ['cfgNome','cfgSubtitulo','cfgLogo','cfgRodape','cfgMarcaDagua','cfgMarcaOpacidade','cfgMarcaPosicao'].forEach(id=>document.getElementById(id).addEventListener('input',atualizarPreview));
       document.getElementById('cfgCertModelo').onchange=atualizarCamposCertificado;
       document.getElementById('cfgAssTam').oninput=atualizarPreviewAssinatura;
       document.getElementById('cfgAssOp').oninput=atualizarPreviewAssinatura;
