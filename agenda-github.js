@@ -118,7 +118,7 @@
       btn.disabled=true;cliente.disabled=ano.disabled=true;const status=modal.querySelector('#loteStatus');let erros=[];
       for(let i=0;i<selecionados.length;i++){const ev=selecionados[i],tr=treinamentos.find(t=>String(t.id)===String(ev.treinamento_id)),nome=tr?.apelido||ev.treinamento||'Treinamento';try{await window.gerarTreinamentoLoteGithub(ev,raiz,op,msg=>{status.innerHTML='<strong>'+(i+1)+' de '+selecionados.length+' - '+nome+'</strong><br>'+msg;});}catch(e){erros.push(nome+': '+e.message);}}
       const clientes=[...new Map(selecionados.map(e=>[String(e.empresa_id||e.empresa||'').trim().toLowerCase(),e])).values()];
-      for(const evCliente of clientes){try{status.textContent='Gerando controle de vencimentos de '+evCliente.empresa+'...';await window.gerarControleVencimentosClienteGithub(evCliente,raiz,{silencioso:true});}catch(e){erros.push('Vencimentos - '+evCliente.empresa+': '+e.message);}}
+      for(const evCliente of clientes){try{status.textContent='Gerando controle de vencimentos de '+evCliente.empresa+'...';const destino=clientes.length>1?await raiz.getDirectoryHandle(String(evCliente.empresa||'Cliente').replace(/[<>:"/\\|?*\x00-\x1F]/g,' ').trim()||'Cliente',{create:true}):raiz;await window.gerarControleVencimentosClienteGithub(evCliente,destino,{silencioso:true});}catch(e){erros.push('Vencimentos - '+evCliente.empresa+': '+e.message);}}
       cliente.disabled=ano.disabled=false;btn.disabled=false;status.innerHTML=erros.length?'<strong>Concluído com '+erros.length+' erro(s).</strong><br>'+erros.join('<br>'):'<strong>Concluído.</strong> '+selecionados.length+' treinamento(s) processado(s).';
     };
   }
