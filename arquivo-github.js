@@ -166,15 +166,44 @@
     try{
       const pdf=new JsPDF({unit:'mm',format:'a4',orientation:'portrait'});
       const canvas=await render(corpo,{scale:1.7,useCORS:true,backgroundColor:'#ffffff',width:794,windowWidth:794});
+      const escala=canvas.width/corpo.getBoundingClientRect().width;
       const pxPagina=Math.floor(canvas.width*297/210);
-      let y=0,pagina=0;
-      while(y<canvas.height){
-        const h=Math.min(pxPagina,canvas.height-y);
-        const parte=document.createElement('canvas');parte.width=canvas.width;parte.height=h;
-        parte.getContext('2d').drawImage(canvas,0,y,canvas.width,h,0,0,canvas.width,h);
+      const limiteCss=pxPagina/escala;
+      const origem=corpo.getBoundingClientRect().top;
+      const pos=el=>el.getBoundingClientRect().top-origem;
+      const fim=el=>el.getBoundingClientRect().bottom-origem;
+      const pontos=[0];
+      // Pontos seguros: entre treinamentos e entre participantes, nunca no meio de uma linha.
+      corpo.querySelectorAll('.treinamento,.grupo,.participantes li,.nota').forEach(el=>{
+        const y=fim(el);
+        if(y>0&&y<corpo.scrollHeight)pontos.push(y);
+      });
+      const ordenados=[...new Set(pontos.map(x=>Math.round(x*escala)))].sort((x,y)=>x-y);
+      const alturaTotal=canvas.height;
+      let inicio=0,pagina=0;
+      while(inicio<alturaTotal){
+        let limite=Math.min(inicio+pxPagina,alturaTotal);
+        if(limite<alturaTotal){
+          const candidatos=ordenados.filter(y=>y>inicio+pxPagina*.35&&y<=limite-4);
+          if(candidatos.length)limite=candidatos[candidatos.length-1];
+          // Se o próximo treinamento começar perto do fim, leve título, datas e
+          // os primeiros participantes juntos para a página seguinte.
+          for(const treino of corpo.querySelectorAll('.treinamento')){
+            const topo=Math.round(pos(treino)*escala);
+            const primeiro=treino.querySelector('.participantes li');
+            const minimo=Math.round((primeiro?fim(primeiro):fim(treino.querySelector('.info')||treino))*escala);
+            if(topo>=inicio&&topo<limite&&minimo>limite&&topo>inicio+20){
+              limite=topo;break;
+            }
+          }
+          if(limite<=inicio+10)limite=Math.min(inicio+pxPagina,alturaTotal);
+        }
+        const altura=Math.max(1,Math.min(alturaTotal-inicio,limite-inicio));
+        const parte=document.createElement('canvas');parte.width=canvas.width;parte.height=altura;
+        parte.getContext('2d').drawImage(canvas,0,inicio,canvas.width,altura,0,0,canvas.width,altura);
         if(pagina++)pdf.addPage();
-        pdf.addImage(parte.toDataURL('image/jpeg',.94),'JPEG',0,0,210,h*210/canvas.width);
-        y+=h;
+        pdf.addImage(parte.toDataURL('image/jpeg',.94),'JPEG',0,0,210,altura*210/canvas.width);
+        inicio+=altura;
       }
       return pdf.output('blob');
     }finally{iframe.remove();}
