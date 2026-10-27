@@ -173,6 +173,7 @@
       const ids=new Set(minhas.map(a=>String(a.id))),tid=new Set(minhas.map(a=>String(a.id_turma||'')));
       const relacionadas=turmas.filter(t=>ids.has(String(t.agenda_id))||tid.has(String(t.id)));
       const dados=[];for(const t of relacionadas){const a=minhas.find(x=>String(x.id)===String(t.agenda_id)||String(x.id_turma)===String(t.id));if(!a)continue;const tr=treinos.find(x=>String(x.id)===String(t.treinamento_id||a.treinamento_id))||treinos.find(x=>norm(x.nome)===norm(t.treinamento||a.treinamento));const ps=await buscar('treinamento_turma_participantes?select=nome,cpf&turma_id=eq.'+encodeURIComponent(t.id));const data=String(t.data_fim||a.data_fim||'').slice(0,10),venc=vencSomarMeses(data,tr?.validade_meses);for(const pessoa of ps)dados.push({nome:pessoa.nome,cpf:pessoa.cpf||'',treinamento:t.treinamento||a.treinamento||tr?.nome||'',norma:tr?.norma||t.norma||'',data,venc,meses:tr?.validade_meses});}
+      if(!dados.length)throw new Error('Nenhum participante encontrado nas turmas deste cliente. Confira o cadastro antes de gerar o relatório.');
       const recentes=new Map();for(const d of dados){const chave=norm(d.treinamento)+'|'+(String(d.cpf).replace(/\D/g,'')||norm(d.nome));const atual=recentes.get(chave);if(!atual||d.data>atual.data)recentes.set(chave,d);}
       const hoje=new Date(),hojeIso=[hoje.getFullYear(),String(hoje.getMonth()+1).padStart(2,'0'),String(hoje.getDate()).padStart(2,'0')].join('-');
       const registros=[...recentes.values()].map(d=>{const dias=d.venc?Math.round((Date.parse(d.venc)-Date.parse(hojeIso))/86400000):null;return {...d,situacao:dias===null?'Validade não cadastrada':dias<0?'Vencido':dias<=30?'Até 30 dias':dias<=60?'Até 60 dias':'Vigente',ordem:dias===null?3:dias<0?0:dias<=60?1:2};}).sort((a,b)=>a.ordem-b.ordem||(a.venc||'9999').localeCompare(b.venc||'9999')||a.treinamento.localeCompare(b.treinamento));
@@ -182,18 +183,7 @@
       aviso.querySelector('#controleVencStatus').textContent='Gerando PDF consolidado...';
       const pasta=await raiz.getDirectoryHandle('05) Vencimento',{create:true});
       await gravar(pasta,'Controle Geral de Vencimentos.pdf',await htmlParaPdf(html,'portrait'));
-      const porTreino=await pasta.getDirectoryHandle('Por Treinamento',{create:true});
-      const grupos=new Map();for(const d of registros){const chave=d.treinamento||'Treinamento';if(!grupos.has(chave))grupos.set(chave,[]);grupos.get(chave).push(d);}
-      for(const [nome,participantes] of grupos){
-        const edicoes=new Map();for(const d of participantes){const chave=[d.data||'',d.venc||'',d.situacao||''].join('|');if(!edicoes.has(chave))edicoes.set(chave,[]);edicoes.get(chave).push(d);}
-        const secoes=[...edicoes.values()].map(lista=>{
-          const primeiro=lista[0];
-          return '<section><div class="datas"><div><small>Data de realização</small><strong>'+vencData(primeiro.data)+'</strong></div><div><small>Vencimento</small><strong>'+vencData(primeiro.venc)+'</strong></div><div><small>Situação</small><strong>'+vencEsc(primeiro.situacao)+'</strong></div></div><h2>Participantes</h2><ol>'+lista.map(d=>'<li>'+vencEsc(d.nome)+'</li>').join('')+'</ol></section>';
-        }).join('');
-        const pagina='<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;color:#24332b;font-size:12px}main{padding:14mm}h1{color:#205c42;font-size:20px;margin:0 0 10px}h2{font-size:12px;margin:16px 0 6px}.datas{display:flex;gap:12px;background:#edf5ef;padding:12px;margin:16px 0}.datas div{flex:1}.datas small{display:block;color:#5b7164;margin-bottom:5px}.datas strong{display:block;font-size:12px}ol{margin:8px 0 18px;padding-left:22px}li{padding:6px 0;border-bottom:1px solid #e3e9e5}section{margin-top:16px;break-inside:avoid}.nota{font-size:9px;color:#66736b;margin-top:20px}</style></head><body><main><h1>'+vencEsc(nome)+'</h1><p><b>Cliente:</b> '+vencEsc(ev.empresa)+'</p><p><b>Emissão:</b> '+vencData(hojeIso)+'</p>'+secoes+'<p class="nota">Quando houver diferentes datas ou situações entre os participantes, os grupos serão apresentados separadamente. Conferir os requisitos normativos aplicáveis.</p></main></body></html>';
-        await gravar(porTreino,limparNome(nome)+'.pdf',await htmlParaPdf(pagina,'portrait'));
-      }
-      aviso.remove();if(!opcoes.silencioso)alert('Relatórios salvos em 05) Vencimento. '+registros.length+' participação(ões), '+grupos.size+' treinamento(s).');
+      aviso.remove();if(!opcoes.silencioso)alert('Controle Geral de Vencimentos.pdf salvo em 05) Vencimento. '+registros.length+' participação(ões).');
     }catch(e){aviso.remove();throw e;}
   };
   window.gerarTreinamentoLoteGithub=async function(ev,raiz,opcoes={},progresso=()=>{}){
