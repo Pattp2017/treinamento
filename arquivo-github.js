@@ -237,9 +237,9 @@
       }).join('');
       const html='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><style>@page{size:A4;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:Arial,sans-serif;color:#24332b;font-size:11px}main{width:100%;padding:0;margin:0}h1{font-size:19px;color:#205c42;margin:0 0 7px}.cabecalho{margin:0 0 12px}.cabecalho p{margin:4px 0}.resumo{background:#edf5ef;padding:10px;margin:10px 0 14px;font-size:10px}.treinamento{margin:0 0 15px;break-inside:auto}.treinamento h2{font-size:13px;background:#e2efe6;color:#1d4c37;padding:8px;margin:0;break-after:avoid}.grupo{margin:0 0 8px;break-inside:auto}.info{display:flex;gap:12px;padding:8px 10px;border:1px solid #e1e9e3;break-inside:avoid}.info span{flex:1}.info small{display:block;color:#607267;font-size:9px;margin-bottom:4px}.info b{font-size:11px}.participantes{padding:8px 12px}.participantes strong{font-size:10px}.participantes ol{margin:6px 0 0;padding-left:23px;columns:2;column-gap:18px}.participantes li{padding:3px 0;break-inside:avoid}.nota{font-size:9px;color:#59665d;margin-top:14px}</style></head><body><main><div class="cabecalho"><h1>CONTROLE GERAL DE VENCIMENTOS</h1><p><b>Cliente:</b> '+vencEsc(ev.empresa)+'</p></div>'+blocos+'<p class="nota">Prazos calculados conforme a validade cadastrada no sistema. Conferir as exigências normativas antes de programar reciclagens.</p></main></body></html>';
       aviso.querySelector('#controleVencStatus').textContent='Gerando PDF consolidado...';
-      const pasta=await raiz.getDirectoryHandle('05) Vencimento',{create:true});
+      const pasta=await raiz.getDirectoryHandle('03) Certificados',{create:true});
       await gravar(pasta,'Controle Geral de Vencimentos.pdf',await htmlVencimentoParaPdf(html));
-      aviso.remove();if(!opcoes.silencioso)alert('Controle Geral de Vencimentos.pdf salvo em 05) Vencimento. '+registros.length+' participação(ões).');
+      aviso.remove();if(!opcoes.silencioso)alert('Controle Geral de Vencimentos.pdf salvo em 03) Certificados. '+registros.length+' participação(ões).');
     }catch(e){aviso.remove();throw e;}
   };
   window.gerarTreinamentoLoteGithub=async function(ev,raiz,opcoes={},progresso=()=>{}){
