@@ -159,11 +159,10 @@
   function vencEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function vencData(v){return v?String(v).slice(0,10).split('-').reverse().join('/'):'Não definida';}
   function vencSomarMeses(data,meses){const n=Number(meses);if(!data||!Number.isInteger(n)||n<=0)return null;const [y,m,d]=String(data).slice(0,10).split('-').map(Number),a=new Date(Date.UTC(y,m-1+n,1));a.setUTCDate(Math.min(d,new Date(Date.UTC(a.getUTCFullYear(),a.getUTCMonth()+1,0)).getUTCDate()));return a.toISOString().slice(0,10);}
-  window.gerarControleVencimentosClienteGithub=async function(ev){
+  window.gerarControleVencimentosClienteGithub=async function(ev,raizExistente=null,opcoes={}){
     if(!ev?.empresa&&!ev?.empresa_id)throw Error('Cliente não identificado.');
-    if(!window.showDirectoryPicker)throw Error('Use Chrome ou Edge para selecionar a pasta.');
-    // O seletor precisa ser chamado diretamente pelo clique do usuário.
-    let raiz;try{raiz=await window.showDirectoryPicker({mode:'readwrite'});}catch(e){if(e?.name==='AbortError')return;throw e;}
+    if(!raizExistente&&!window.showDirectoryPicker)throw Error('Use Chrome ou Edge para selecionar a pasta.');
+    let raiz=raizExistente;if(!raiz){try{raiz=await window.showDirectoryPicker({mode:'readwrite'});}catch(e){if(e?.name==='AbortError')return;throw e;}}
     const aviso=document.createElement('div');aviso.className='modal';aviso.innerHTML='<div class="modal-box"><h3>Controle de vencimentos</h3><p id="controleVencStatus">Consultando todos os treinamentos do cliente...</p></div>';document.body.appendChild(aviso);
     try{
       const c=window.SUPABASE_CONFIG||{},base=String(c.url||'').replace(/\/$/,'');
@@ -182,13 +181,20 @@
       const html='<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;color:#24332b;font-size:10px}main{padding:14mm}h1{font-size:20px;color:#205c42}.resumo{background:#edf5ef;padding:12px;margin:14px 0;line-height:1.9}table{width:100%;border-collapse:collapse;font-size:9px}th,td{border:1px solid #d7e0da;padding:6px;text-align:left}th{background:#e1efe5}tr{break-inside:avoid}p.nota{font-size:9px;color:#59665d;margin-top:16px}</style></head><body><main><h1>CONTROLE GERAL DE VENCIMENTOS</h1><p><b>Cliente:</b> '+vencEsc(ev.empresa)+'</p><p><b>Emissão:</b> '+vencData(hojeIso)+'</p><div class="resumo"><b>Participações vigentes:</b> '+contar('Vigente')+' &nbsp; | &nbsp; <b>Até 60 dias:</b> '+(contar('Até 30 dias')+contar('Até 60 dias'))+' &nbsp; | &nbsp; <b>Vencidas:</b> '+contar('Vencido')+' &nbsp; | &nbsp; <b>Sem validade:</b> '+contar('Validade não cadastrada')+'</div><table><thead><tr><th>Treinamento</th><th>NR</th><th>Participante</th><th>Realização</th><th>Vencimento</th><th>Situação</th></tr></thead><tbody>'+linhas+'</tbody></table><p class="nota">Datas calculadas a partir da conclusão e do prazo cadastrado no sistema. Confirmar requisitos normativos e particularidades antes de programar reciclagens. O relatório considera a realização mais recente por participante e treinamento.</p></main></body></html>';
       aviso.querySelector('#controleVencStatus').textContent='Gerando PDF consolidado...';
       const pasta=await raiz.getDirectoryHandle('05) Vencimento',{create:true});
-      await gravar(pasta,'Controle Geral de Vencimentos - '+limparNome(ev.empresa)+'.pdf',await htmlParaPdf(html,'portrait'));
-      aviso.remove();alert('Relatório consolidado salvo em 05) Vencimento. '+registros.length+' participação(ões).');
+      await gravar(pasta,'Controle Geral de Vencimentos.pdf',await htmlParaPdf(html,'portrait'));
+      const porTreino=await pasta.getDirectoryHandle('Por Treinamento',{create:true});
+      const grupos=new Map();for(const d of registros){const chave=d.treinamento||'Treinamento';if(!grupos.has(chave))grupos.set(chave,[]);grupos.get(chave).push(d);}
+      for(const [nome,participantes] of grupos){
+        const linhasTreino=participantes.map(d=>'<tr><td>'+vencEsc(d.nome)+'</td><td>'+vencData(d.data)+'</td><td>'+vencData(d.venc)+'</td><td>'+vencEsc(d.situacao)+'</td></tr>').join('');
+        const pagina='<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;color:#24332b;font-size:11px}main{padding:14mm}h1{color:#205c42;font-size:19px}table{border-collapse:collapse;width:100%;margin-top:18px}th,td{border:1px solid #d7e0da;padding:8px;text-align:left}th{background:#e1efe5}tr{break-inside:avoid}.nota{font-size:9px;color:#66736b;margin-top:20px}</style></head><body><main><h1>CONTROLE DE VENCIMENTOS POR TREINAMENTO</h1><p><b>Cliente:</b> '+vencEsc(ev.empresa)+'</p><p><b>Treinamento:</b> '+vencEsc(nome)+'</p><p><b>Emissão:</b> '+vencData(hojeIso)+'</p><table><thead><tr><th>Participante</th><th>Data de realização</th><th>Vencimento</th><th>Situação</th></tr></thead><tbody>'+linhasTreino+'</tbody></table><p class="nota">A validade segue o prazo cadastrado no sistema; conferir requisitos normativos aplicáveis.</p></main></body></html>';
+        await gravar(porTreino,limparNome(nome)+'.pdf',await htmlParaPdf(pagina,'portrait'));
+      }
+      aviso.remove();if(!opcoes.silencioso)alert('Relatórios salvos em 05) Vencimento. '+registros.length+' participação(ões), '+grupos.size+' treinamento(s).');
     }catch(e){aviso.remove();throw e;}
   };
   window.gerarTreinamentoLoteGithub=async function(ev,raiz,opcoes={},progresso=()=>{}){
     const gerarLista=opcoes.lista!==false,gerarCert=opcoes.certificados!==false;
-    // O relatório de vencimentos acompanha toda geração de treinamento.
+    // Relatórios de vencimento são gerados uma vez por cliente ao concluir o lote.
     let lista=null,certs=null;
     if(gerarLista&&gerarCert)[lista,certs]=await Promise.all([window.obterListaPresencaGithub(ev),window.obterCertificadosGithub(ev)]);
     else if(gerarLista)lista=await window.obterListaPresencaGithub(ev);
