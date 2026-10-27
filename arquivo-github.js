@@ -154,9 +154,35 @@
     try{const atestados=[...corpo.querySelectorAll('.atestado-it12')];if(orientacao==='portrait'&&atestados.length){const JsPDF=window.jspdf?.jsPDF||window.jsPDF;if(!JsPDF)throw new Error('jsPDF não carregado.');const renderCanvas=window.html2canvas;if(!renderCanvas)throw new Error('html2canvas não carregado.');const pdf=new JsPDF({unit:'mm',format:'a4',orientation:'portrait'});for(let i=0;i<atestados.length;i++){const pag=atestados[i];pag.style.width='210mm';pag.style.height='297mm';pag.style.minHeight='297mm';pag.style.maxHeight='297mm';pag.style.overflow='hidden';pag.style.pageBreakBefore='auto';pag.style.pageBreakAfter='auto';pag.style.breakBefore='auto';pag.style.breakAfter='auto';const canvas=await renderCanvas(pag,{scale:2,useCORS:true,backgroundColor:'#ffffff',width:pag.scrollWidth,height:pag.scrollHeight});if(i>0)pdf.addPage('a4','portrait');pdf.addImage(canvas.toDataURL('image/jpeg',.98),'JPEG',0,0,210,297);}return pdf.output('blob');}if(orientacao==='landscape'){const pags=[...corpo.querySelectorAll('.pagina')];const JsPDF=window.jspdf?.jsPDF||window.jsPDF;if(!JsPDF)throw new Error('jsPDF não carregado.');const pdf=new JsPDF({unit:'mm',format:'a4',orientation:'landscape'});for(let i=0;i<pags.length;i++){const renderCanvas=window.html2canvas;if(!renderCanvas)throw new Error('html2canvas não carregado.');const canvas=await renderCanvas(pags[i],{scale:2,useCORS:true,backgroundColor:'#ffffff',width:pags[i].scrollWidth,height:pags[i].scrollHeight});if(i>0)pdf.addPage('a4','landscape');pdf.addImage(canvas.toDataURL('image/jpeg',.98),'JPEG',0,0,297,210);}return pdf.output('blob');}return await html2pdf().set({margin:0,filename:'documento.pdf',image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:orientacao},pagebreak:{mode:['css']}}).from(corpo).outputPdf('blob');}
     finally{box.remove();}
   }
+
+  function vencEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function vencData(v){return v?String(v).slice(0,10).split('-').reverse().join('/'):'Não definida';}
+  function vencSomarMeses(data,meses){const n=Number(meses);if(!data||!Number.isInteger(n)||n<=0)return null;const [y,m,d]=String(data).slice(0,10).split('-').map(Number),a=new Date(Date.UTC(y,m-1+n,1));a.setUTCDate(Math.min(d,new Date(Date.UTC(a.getUTCFullYear(),a.getUTCMonth()+1,0)).getUTCDate()));return a.toISOString().slice(0,10);}
+  async function gerarRelatorioVencimento(ev,turma,raiz,progresso=()=>{}){
+    if(!turma?.id)throw new Error('Turma não localizada para o relatório de vencimentos.');
+    progresso('Gerando controle de vencimentos...');
+    const c=window.SUPABASE_CONFIG||{},base=String(c.url||'').replace(/\/$/,'');
+    async function buscar(path){const r=await fetch(base+'/rest/v1/'+path,{headers:{apikey:c.anonKey,Authorization:'Bearer '+c.anonKey,Accept:'application/json'}});if(!r.ok)throw Error('Consulta de vencimentos: '+await r.text());return r.json();}
+    const [pessoas,treinos]=await Promise.all([
+      buscar('treinamento_turma_participantes?turma_id=eq.'+encodeURIComponent(turma.id)+'&select=nome,cpf&order=nome.asc'),
+      buscar('treinamento_treinamentos?select=id,nome,norma,validade_meses')
+    ]);
+    const normal=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    const tr=treinos.find(t=>String(t.id)===String(turma.treinamento_id||ev.treinamento_id))||treinos.find(t=>normal(t.nome)===normal(turma.treinamento||ev.treinamento));
+    const data=String(turma.data_fim||ev.data_fim||'').slice(0,10),venc=vencSomarMeses(data,tr?.validade_meses);
+    const hoje=new Date(),agora=[hoje.getFullYear(),String(hoje.getMonth()+1).padStart(2,'0'),String(hoje.getDate()).padStart(2,'0')].join('-');
+    const dias=venc?Math.round((Date.parse(venc)-Date.parse(agora))/86400000):null;
+    const situacao=dias===null?'Sem validade definida':dias<0?'Vencido':dias<=30?'Vence em até 30 dias':dias<=60?'Vence em até 60 dias':'Vigente';
+    const cliente=turma.empresa||ev.empresa||'Cliente não informado',nome=turma.treinamento||ev.treinamento||tr?.nome||'Treinamento';
+    const linhas=(pessoas.length?pessoas:[{nome:'Participantes não cadastrados'}]).map((p,i)=>'<tr><td>'+String(i+1).padStart(2,'0')+'</td><td>'+vencEsc(p.nome)+'</td><td>'+vencData(data)+'</td><td>'+vencData(venc)+'</td><td>'+vencEsc(situacao)+'</td></tr>').join('');
+    const html='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;color:#22332c;font-size:12px;margin:0;padding:0}main{padding:16mm 14mm}h1{font-size:20px;color:#1b503a;margin:0 0 10px}h2{font-size:15px;margin:16px 0 6px}.meta{padding:12px;background:#edf4ef;border-left:4px solid #3b7754}.meta div{margin:5px 0}table{width:100%;border-collapse:collapse;margin-top:14px;font-size:10px}th,td{padding:8px;border:1px solid #d4e0d8;text-align:left}th{background:#e2efe7}tr{break-inside:avoid}.nota{margin-top:16px;color:#66736b;font-size:10px}footer{margin-top:25px;border-top:1px solid #d4e0d8;padding-top:9px;font-size:10px}</style></head><body><main><h1>CONTROLE DE VENCIMENTOS DE TREINAMENTOS</h1><p>Relatório de acompanhamento para o cliente</p><div class="meta"><div><b>Cliente:</b> '+vencEsc(cliente)+'</div><div><b>Treinamento:</b> '+vencEsc(nome)+'</div><div><b>Norma:</b> '+vencEsc(tr?.norma||turma.norma||ev.norma||'Não informada')+'</div><div><b>Carga horária:</b> '+vencEsc(turma.carga_horaria||ev.carga_horaria||'Não informada')+' horas</div><div><b>Data de conclusão:</b> '+vencData(data)+'</div><div><b>Validade cadastrada:</b> '+(Number(tr?.validade_meses)>0?vencEsc(tr.validade_meses)+' meses':'Não definida')+'</div><div><b>Emissão:</b> '+vencData(agora)+'</div></div><h2>Relação de participantes e vencimentos</h2><table><thead><tr><th>Nº</th><th>Participante</th><th>Realização</th><th>Vencimento</th><th>Situação</th></tr></thead><tbody>'+linhas+'</tbody></table><p class="nota">As datas de vencimento são calculadas conforme o prazo cadastrado para este treinamento. A ausência de prazo cadastrado não significa dispensa de reciclagem. Confira exigências normativas e situações individuais antes de programar novos treinamentos.</p><footer>Total de participantes: '+pessoas.length+' | Documento gerado automaticamente para acompanhamento.</footer></main></body></html>';
+    const pasta=await raiz.getDirectoryHandle('05) Vencimento',{create:true});
+    const pdf=await htmlParaPdf(html,'portrait');
+    await gravar(pasta,'Controle de Vencimento - '+limparNome(nome)+'.pdf',pdf);
+  }
   window.gerarTreinamentoLoteGithub=async function(ev,raiz,opcoes={},progresso=()=>{}){
     const gerarLista=opcoes.lista!==false,gerarCert=opcoes.certificados!==false;
-    if(!gerarLista&&!gerarCert)return;
+    // O relatório de vencimentos acompanha toda geração de treinamento.
     let lista=null,certs=null;
     if(gerarLista&&gerarCert)[lista,certs]=await Promise.all([window.obterListaPresencaGithub(ev),window.obterCertificadosGithub(ev)]);
     else if(gerarLista)lista=await window.obterListaPresencaGithub(ev);
@@ -185,6 +211,7 @@
         if(window.registrarCertificadoGeradoGithub)await window.registrarCertificadoGeradoGithub(certs.turma,d.participante||{nome:d.nome,cpf:d.cpf});
       }
     }
+    await gerarRelatorioVencimento(ev,lista?.turma||certs?.turma,raiz,progresso);
   };
   window.arquivarTreinamentoGithub=async function(ev){
     if(!window.showDirectoryPicker)return alert('Seu navegador não permite selecionar pastas. Use Chrome ou Edge atualizado.');
@@ -211,6 +238,7 @@
         if(window.registrarCertificadoGeradoGithub)await window.registrarCertificadoGeradoGithub(certs.turma,d.participante||{nome:d.nome,cpf:d.cpf});
       }
       if(pastaIT12&&lista.htmlAtestadoIT12){atualizarStatus('Gerando atestado IT 12...');const pdfAtestado=await htmlParaPdf(lista.htmlAtestadoIT12,'portrait');await gravar(pastaIT12,'ATESTADO DE FORMAÇÃO DE BRIGADA DE INCÊNDIO.pdf',pdfAtestado);}
+      await gerarRelatorioVencimento(ev,lista.turma,raiz,atualizarStatus);
       aviso.remove();alert('Pasta atualizada com sucesso. Arquivos com o mesmo nome foram substituídos.');
     }catch(e){aviso.remove();alert('Erro ao gerar a pasta: '+e.message);}
   };
