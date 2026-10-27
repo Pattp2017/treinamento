@@ -84,7 +84,7 @@
     modal.innerHTML=`<div class="modal-box" style="width:min(720px,94vw)"><div style="display:flex;justify-content:space-between;align-items:center"><h3>⚡ Geração em lote</h3><button class="btn secundario" id="fecharGeracaoLote">✕</button></div>
       <div class="grid-2" style="margin-top:12px"><label>Cliente<div style="position:relative"><input id="loteCliente" autocomplete="off" placeholder="Digite qualquer parte do nome"><div id="loteClienteSugestoes" style="display:none;position:absolute;z-index:30;left:0;right:0;top:100%;max-height:220px;overflow:auto;background:#fff;border:1px solid #ccd5d1;border-radius:0 0 8px 8px;box-shadow:0 5px 14px rgba(0,0,0,.10)"></div></div></label><label>Ano<select id="loteAno"><option value="">Selecione...</option>${anos.map(x=>'<option>'+x+'</option>').join('')}</select></label></div>
       <div style="display:flex;gap:22px;margin:14px 0"><label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="loteLista" checked style="width:18px;height:18px"> Lista de Presença</label><label style="display:flex;gap:7px;align-items:center"><input type="checkbox" id="loteCert" checked style="width:18px;height:18px"> Certificados</label></div>
-      <div id="loteTreinamentos" style="border:1px solid #dde6e3;border-radius:10px;padding:10px;max-height:42vh;overflow:auto"><span style="color:#6c757d">Selecione cliente e ano.</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0"><label style="display:flex;align-items:center;gap:7px"><input type="checkbox" id="loteSelecionarTodos" style="width:18px;height:18px"> Selecionar todos os treinamentos filtrados</label><label style="display:flex;align-items:center;gap:7px"><input type="checkbox" id="loteAvancarFase" style="width:18px;height:18px"> Avançar para fase 4/4 após gerar</label></div><div id="loteTreinamentos" style="border:1px solid #dde6e3;border-radius:10px;padding:10px;max-height:42vh;overflow:auto"><span style="color:#6c757d">Selecione cliente e ano.</span></div>
       <div id="loteStatus" style="margin-top:10px;font-size:13px"></div>
       <div class="acoes"><button class="btn primario" id="gerarLote" disabled>⚡ Gerar</button></div></div>`;
     document.body.appendChild(modal);
@@ -92,7 +92,8 @@
     const atualizar=()=>{
       const qCliente=String(cliente.value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();const lista=eventos.filter(e=>(!qCliente||String(e.empresa||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(qCliente))&&String(e.data_inicio||'').startsWith(ano.value)&&e.id_turma&&String(e.status||'').toLowerCase()!=='cancelado');
       area.innerHTML=lista.length?lista.map((e,i)=>{const tr=treinamentos.find(t=>String(t.id)===String(e.treinamento_id));const nome=tr?.apelido||e.treinamento||tr?.nome||'Treinamento';return `<label style="display:flex;align-items:center;gap:9px;padding:8px;border-bottom:1px solid #eef1f0"><input class="loteItem" type="checkbox" data-id="${e.id}" style="width:18px;height:18px"><span>${nome}</span></label>`;}).join(''):'<span style="color:#6c757d">Nenhum treinamento disponível para este filtro.</span>';
-      modal.querySelectorAll('.loteItem').forEach(c=>c.onchange=()=>btn.disabled=!modal.querySelector('.loteItem:checked'));
+      const todos=modal.querySelector('#loteSelecionarTodos');todos.checked=false;todos.indeterminate=false;
+      modal.querySelectorAll('.loteItem').forEach(c=>c.onchange=()=>{const itens=[...modal.querySelectorAll('.loteItem')],marcados=itens.filter(x=>x.checked).length;todos.checked=marcados===itens.length;todos.indeterminate=marcados>0&&marcados<itens.length;btn.disabled=!marcados;});
       btn.disabled=true;
     };
     const sugestoes=modal.querySelector('#loteClienteSugestoes');
@@ -106,25 +107,27 @@
       sugestoes.querySelectorAll('.loteClienteOpcao').forEach(b=>b.onclick=()=>{cliente.value=b.dataset.nome;sugestoes.style.display='none';atualizar();});
       atualizar();
     };
+    modal.querySelector('#loteSelecionarTodos').onchange=e=>{modal.querySelectorAll('.loteItem').forEach(c=>c.checked=e.target.checked);btn.disabled=!modal.querySelector('.loteItem:checked');};
     cliente.oninput=atualizarSugestoes;cliente.onchange=atualizar;ano.onchange=atualizar;modal.querySelector('#fecharGeracaoLote').onclick=fechar;
     btn.onclick=async()=>{
-      const op={lista:modal.querySelector('#loteLista').checked,certificados:modal.querySelector('#loteCert').checked};
+      const op={lista:modal.querySelector('#loteLista').checked,certificados:modal.querySelector('#loteCert').checked};const avancarFase=modal.querySelector('#loteAvancarFase').checked;
       if(!op.lista&&!op.certificados)return alert('Marque Lista de Presença, Certificados ou ambos.');
       const ids=[...modal.querySelectorAll('.loteItem:checked')].map(c=>c.dataset.id),selecionados=ids.map(id=>eventos.find(e=>String(e.id)===String(id))).filter(Boolean);
       if(!selecionados.length)return;
       if(!window.showDirectoryPicker)return alert('Seu navegador não permite selecionar pastas. Use Chrome ou Edge atualizado.');
       if(!window.gerarTreinamentoLoteGithub)return alert('Módulo de geração não carregado.');
       let raiz;try{raiz=await window.showDirectoryPicker({mode:'readwrite'});}catch(e){if(e?.name!=='AbortError')alert('Não foi possível abrir a pasta: '+e.message);return;}
-      btn.disabled=true;cliente.disabled=ano.disabled=true;const status=modal.querySelector('#loteStatus');let erros=[];
-      for(let i=0;i<selecionados.length;i++){const ev=selecionados[i],tr=treinamentos.find(t=>String(t.id)===String(ev.treinamento_id)),nome=tr?.apelido||ev.treinamento||'Treinamento';try{await window.gerarTreinamentoLoteGithub(ev,raiz,op,msg=>{status.innerHTML='<strong>'+(i+1)+' de '+selecionados.length+' - '+nome+'</strong><br>'+msg;});}catch(e){erros.push(nome+': '+e.message);}}
+      btn.disabled=true;cliente.disabled=ano.disabled=true;const status=modal.querySelector('#loteStatus');let erros=[],gerados=[];
+      for(let i=0;i<selecionados.length;i++){const ev=selecionados[i],tr=treinamentos.find(t=>String(t.id)===String(ev.treinamento_id)),nome=tr?.apelido||ev.treinamento||'Treinamento';try{await window.gerarTreinamentoLoteGithub(ev,raiz,op,msg=>{status.innerHTML='<strong>'+(i+1)+' de '+selecionados.length+' - '+nome+'</strong><br>'+msg;});gerados.push(ev);}catch(e){erros.push(nome+': '+e.message);}}
       const clientes=[...new Map(selecionados.map(e=>[String(e.empresa_id||e.empresa||'').trim().toLowerCase(),e])).values()];
       for(const evCliente of clientes){try{status.textContent='Gerando controle de vencimentos de '+evCliente.empresa+'...';const destino=clientes.length>1?await raiz.getDirectoryHandle(String(evCliente.empresa||'Cliente').replace(/[<>:"/\\|?*\x00-\x1F]/g,' ').trim()||'Cliente',{create:true}):raiz;await window.gerarControleVencimentosClienteGithub(evCliente,destino,{silencioso:true});}catch(e){erros.push('Vencimentos - '+evCliente.empresa+': '+e.message);}}
+      if(avancarFase){for(const ev of gerados){try{await supabaseFetch('treinamento_agenda?id=eq.'+encodeURIComponent(ev.id),{method:'PATCH',body:JSON.stringify({etapa:4,atualizado_em:new Date().toISOString()})});ev.etapa=4;}catch(e){erros.push('Fase 4/4 - '+(ev.treinamento||ev.id)+': '+e.message);}}desenhar();}
       cliente.disabled=ano.disabled=false;btn.disabled=false;status.innerHTML=erros.length?'<strong>Concluído com '+erros.length+' erro(s).</strong><br>'+erros.join('<br>'):'<strong>Concluído.</strong> '+selecionados.length+' treinamento(s) processado(s).';
     };
   }
   function configurarAtalhoGeracaoLote(){
     if(window.__atalhoGeracaoLote)return;window.__atalhoGeracaoLote=true;
-    document.addEventListener('keydown',e=>{if(document.getElementById('tituloPagina')?.textContent!=='Agenda'||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;if((e.ctrlKey||e.metaKey)&&String(e.key).toLowerCase()==='g'){e.preventDefault();abrirGeracaoLote();}if((e.ctrlKey||e.metaKey)&&e.key==='Delete'){e.preventDefault();abrirExclusaoLote();}});
+    document.addEventListener('keydown',e=>{if(!document.getElementById('gradeAgenda')||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;if((e.ctrlKey||e.metaKey)&&String(e.key).toLowerCase()==='g'){e.preventDefault();abrirGeracaoLote();}if((e.ctrlKey||e.metaKey)&&e.key==='Delete'){e.preventDefault();abrirExclusaoLote();}});
   }
   window.renderAgendaGithub=async function(){configurarAtalhoGeracaoLote();const area=document.getElementById('conteudoPrincipal');area.innerHTML=htmlAgenda();document.getElementById('abrirExclusaoLote').onclick=abrirExclusaoLote;document.getElementById('mesAnterior').onclick=()=>{dataAtual.setMonth(dataAtual.getMonth()-1);desenhar();};document.getElementById('mesSeguinte').onclick=()=>{dataAtual.setMonth(dataAtual.getMonth()+1);desenhar();};document.getElementById('fecharAgenda').onclick=fecharModal;document.getElementById('salvarAgenda').onclick=salvar;document.getElementById('agData').onchange=calcularDataFinal;document.getElementById('agTreinamento').onchange=preencherDadosTreinamento;desenhar();if(!configurado())return;try{await Promise.all([carregarTreinamentos(),carregarCadastros()]);preencherSelect('agTreinamento',treinamentos,'nome');prepararBuscaEmpresas();atualizarInstrutores();preencherFiltrosAgenda();await carregarEventos();}catch(e){document.getElementById('avisoAgenda').textContent='Erro ao carregar dados: '+e.message;}};
 })();
