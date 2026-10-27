@@ -156,6 +156,29 @@
   }
 
 
+  async function htmlVencimentoParaPdf(html){
+    const JsPDF=window.jspdf?.jsPDF||window.jsPDF,render=window.html2canvas;
+    if(!JsPDF||!render)throw new Error('Bibliotecas de PDF indisponíveis.');
+    const iframe=document.createElement('div');iframe.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:white;z-index:-1;';
+    const doc=new DOMParser().parseFromString(html,'text/html');
+    const style=document.createElement('style');style.textContent=[...doc.querySelectorAll('style')].map(x=>x.textContent).join('\n');
+    iframe.appendChild(style);const corpo=document.createElement('div');corpo.innerHTML=doc.body.innerHTML;corpo.style.cssText='width:794px;padding:40px 48px;background:#fff';iframe.appendChild(corpo);document.body.appendChild(iframe);
+    try{
+      const pdf=new JsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+      const canvas=await render(corpo,{scale:1.7,useCORS:true,backgroundColor:'#ffffff',width:794,windowWidth:794});
+      const pxPagina=Math.floor(canvas.width*297/210);
+      let y=0,pagina=0;
+      while(y<canvas.height){
+        const h=Math.min(pxPagina,canvas.height-y);
+        const parte=document.createElement('canvas');parte.width=canvas.width;parte.height=h;
+        parte.getContext('2d').drawImage(canvas,0,y,canvas.width,h,0,0,canvas.width,h);
+        if(pagina++)pdf.addPage();
+        pdf.addImage(parte.toDataURL('image/jpeg',.94),'JPEG',0,0,210,h*210/canvas.width);
+        y+=h;
+      }
+      return pdf.output('blob');
+    }finally{iframe.remove();}
+  }
   function vencEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function vencData(v){return v?String(v).slice(0,10).split('-').reverse().join('/'):'Não definida';}
   function vencSomarMeses(data,meses){const n=Number(meses);if(!data||!Number.isInteger(n)||n<=0)return null;const [y,m,d]=String(data).slice(0,10).split('-').map(Number),a=new Date(Date.UTC(y,m-1+n,1));a.setUTCDate(Math.min(d,new Date(Date.UTC(a.getUTCFullYear(),a.getUTCMonth()+1,0)).getUTCDate()));return a.toISOString().slice(0,10);}
@@ -178,11 +201,15 @@
       const hoje=new Date(),hojeIso=[hoje.getFullYear(),String(hoje.getMonth()+1).padStart(2,'0'),String(hoje.getDate()).padStart(2,'0')].join('-');
       const registros=[...recentes.values()].map(d=>{const dias=d.venc?Math.round((Date.parse(d.venc)-Date.parse(hojeIso))/86400000):null;return {...d,situacao:dias===null?'Validade não cadastrada':dias<0?'Vencido':dias<=30?'Até 30 dias':dias<=60?'Até 60 dias':'Vigente',ordem:dias===null?3:dias<0?0:dias<=60?1:2};}).sort((a,b)=>a.ordem-b.ordem||(a.venc||'9999').localeCompare(b.venc||'9999')||a.treinamento.localeCompare(b.treinamento));
       const contar=s=>registros.filter(d=>d.situacao===s).length;
-      const linhas=registros.map(d=>'<tr><td>'+vencEsc(d.treinamento)+'</td><td>'+vencEsc(d.norma||'—')+'</td><td>'+vencEsc(d.nome)+'</td><td>'+vencData(d.data)+'</td><td>'+vencData(d.venc)+'</td><td>'+vencEsc(d.situacao)+'</td></tr>').join('');
-      const html='<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;color:#24332b;font-size:10px}main{padding:14mm}h1{font-size:20px;color:#205c42}.resumo{background:#edf5ef;padding:12px;margin:14px 0;line-height:1.9}table{width:100%;border-collapse:collapse;font-size:9px}th,td{border:1px solid #d7e0da;padding:6px;text-align:left}th{background:#e1efe5}tr{break-inside:avoid}p.nota{font-size:9px;color:#59665d;margin-top:16px}</style></head><body><main><h1>CONTROLE GERAL DE VENCIMENTOS</h1><p><b>Cliente:</b> '+vencEsc(ev.empresa)+'</p><p><b>Emissão:</b> '+vencData(hojeIso)+'</p><div class="resumo"><b>Participações vigentes:</b> '+contar('Vigente')+' &nbsp; | &nbsp; <b>Até 60 dias:</b> '+(contar('Até 30 dias')+contar('Até 60 dias'))+' &nbsp; | &nbsp; <b>Vencidas:</b> '+contar('Vencido')+' &nbsp; | &nbsp; <b>Sem validade:</b> '+contar('Validade não cadastrada')+'</div><table><thead><tr><th>Treinamento</th><th>NR</th><th>Participante</th><th>Realização</th><th>Vencimento</th><th>Situação</th></tr></thead><tbody>'+linhas+'</tbody></table><p class="nota">Datas calculadas a partir da conclusão e do prazo cadastrado no sistema. Confirmar requisitos normativos e particularidades antes de programar reciclagens. O relatório considera a realização mais recente por participante e treinamento.</p></main></body></html>';
+      const grupos=new Map();for(const d of registros){const k=d.treinamento||'Treinamento';if(!grupos.has(k))grupos.set(k,[]);grupos.get(k).push(d);}
+      const blocos=[...grupos].map(([nome,lista])=>{
+        const edicoes=new Map();for(const d of lista){const chave=[d.data,d.venc,d.situacao].join('|');if(!edicoes.has(chave))edicoes.set(chave,[]);edicoes.get(chave).push(d);}
+        return '<div class="treinamento"><h2>'+vencEsc(nome)+'</h2>'+[...edicoes.values()].map(grupo=>{const d=grupo[0];return '<div class="grupo"><div class="info"><span><small>Data de realização</small><b>'+vencData(d.data)+'</b></span><span><small>Vencimento</small><b>'+vencData(d.venc)+'</b></span><span><small>Situação</small><b>'+vencEsc(d.situacao)+'</b></span></div><div class="participantes"><strong>Participantes</strong><ol>'+grupo.map(x=>'<li>'+vencEsc(x.nome)+'</li>').join('')+'</ol></div></div>';}).join('')+'</div>';
+      }).join('');
+      const html='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><style>@page{size:A4;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:Arial,sans-serif;color:#24332b;font-size:11px}main{width:100%;padding:0;margin:0}h1{font-size:19px;color:#205c42;margin:0 0 7px}.cabecalho{margin:0 0 12px}.cabecalho p{margin:4px 0}.resumo{background:#edf5ef;padding:10px;margin:10px 0 14px;font-size:10px}.treinamento{margin:0 0 15px;break-inside:auto}.treinamento h2{font-size:13px;background:#e2efe6;color:#1d4c37;padding:8px;margin:0;break-after:avoid}.grupo{margin:0 0 8px;break-inside:auto}.info{display:flex;gap:12px;padding:8px 10px;border:1px solid #e1e9e3;break-inside:avoid}.info span{flex:1}.info small{display:block;color:#607267;font-size:9px;margin-bottom:4px}.info b{font-size:11px}.participantes{padding:8px 12px}.participantes strong{font-size:10px}.participantes ol{margin:6px 0 0;padding-left:23px;columns:2;column-gap:18px}.participantes li{padding:3px 0;break-inside:avoid}.nota{font-size:9px;color:#59665d;margin-top:14px}</style></head><body><main><div class="cabecalho"><h1>CONTROLE GERAL DE VENCIMENTOS</h1><p><b>Cliente:</b> '+vencEsc(ev.empresa)+'</p><p><b>Emissão:</b> '+vencData(hojeIso)+'</p></div><div class="resumo"><b>Vigentes:</b> '+contar('Vigente')+' &nbsp; | &nbsp; <b>Até 60 dias:</b> '+(contar('Até 30 dias')+contar('Até 60 dias'))+' &nbsp; | &nbsp; <b>Vencidos:</b> '+contar('Vencido')+' &nbsp; | &nbsp; <b>Sem validade:</b> '+contar('Validade não cadastrada')+'</div>'+blocos+'<p class="nota">Prazos calculados conforme a validade cadastrada no sistema. Conferir as exigências normativas antes de programar reciclagens.</p></main></body></html>';
       aviso.querySelector('#controleVencStatus').textContent='Gerando PDF consolidado...';
       const pasta=await raiz.getDirectoryHandle('05) Vencimento',{create:true});
-      await gravar(pasta,'Controle Geral de Vencimentos.pdf',await htmlParaPdf(html,'portrait'));
+      await gravar(pasta,'Controle Geral de Vencimentos.pdf',await htmlVencimentoParaPdf(html));
       aviso.remove();if(!opcoes.silencioso)alert('Controle Geral de Vencimentos.pdf salvo em 05) Vencimento. '+registros.length+' participação(ões).');
     }catch(e){aviso.remove();throw e;}
   };
