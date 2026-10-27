@@ -117,6 +117,8 @@
       let raiz;try{raiz=await window.showDirectoryPicker({mode:'readwrite'});}catch(e){if(e?.name!=='AbortError')alert('Não foi possível abrir a pasta: '+e.message);return;}
       btn.disabled=true;cliente.disabled=ano.disabled=true;const status=modal.querySelector('#loteStatus');let erros=[];
       for(let i=0;i<selecionados.length;i++){const ev=selecionados[i],tr=treinamentos.find(t=>String(t.id)===String(ev.treinamento_id)),nome=tr?.apelido||ev.treinamento||'Treinamento';try{await window.gerarTreinamentoLoteGithub(ev,raiz,op,msg=>{status.innerHTML='<strong>'+(i+1)+' de '+selecionados.length+' - '+nome+'</strong><br>'+msg;});}catch(e){erros.push(nome+': '+e.message);}}
+      const clientes=[...new Map(selecionados.map(e=>[String(e.empresa_id||e.empresa||'').trim().toLowerCase(),e])).values()];
+      for(const evCliente of clientes){try{status.textContent='Gerando controle de vencimentos de '+evCliente.empresa+'...';await window.gerarControleVencimentosClienteGithub(evCliente,raiz,{silencioso:true});}catch(e){erros.push('Vencimentos - '+evCliente.empresa+': '+e.message);}}
       cliente.disabled=ano.disabled=false;btn.disabled=false;status.innerHTML=erros.length?'<strong>Concluído com '+erros.length+' erro(s).</strong><br>'+erros.join('<br>'):'<strong>Concluído.</strong> '+selecionados.length+' treinamento(s) processado(s).';
     };
   }
