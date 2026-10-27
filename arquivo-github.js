@@ -155,31 +155,37 @@
     finally{box.remove();}
   }
 
+
   function vencEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function vencData(v){return v?String(v).slice(0,10).split('-').reverse().join('/'):'Não definida';}
   function vencSomarMeses(data,meses){const n=Number(meses);if(!data||!Number.isInteger(n)||n<=0)return null;const [y,m,d]=String(data).slice(0,10).split('-').map(Number),a=new Date(Date.UTC(y,m-1+n,1));a.setUTCDate(Math.min(d,new Date(Date.UTC(a.getUTCFullYear(),a.getUTCMonth()+1,0)).getUTCDate()));return a.toISOString().slice(0,10);}
-  async function gerarRelatorioVencimento(ev,turma,raiz,progresso=()=>{}){
-    if(!turma?.id)throw new Error('Turma não localizada para o relatório de vencimentos.');
-    progresso('Gerando controle de vencimentos...');
-    const c=window.SUPABASE_CONFIG||{},base=String(c.url||'').replace(/\/$/,'');
-    async function buscar(path){const r=await fetch(base+'/rest/v1/'+path,{headers:{apikey:c.anonKey,Authorization:'Bearer '+c.anonKey,Accept:'application/json'}});if(!r.ok)throw Error('Consulta de vencimentos: '+await r.text());return r.json();}
-    const [pessoas,treinos]=await Promise.all([
-      buscar('treinamento_turma_participantes?turma_id=eq.'+encodeURIComponent(turma.id)+'&select=nome,cpf&order=nome.asc'),
-      buscar('treinamento_treinamentos?select=id,nome,norma,validade_meses')
-    ]);
-    const normal=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-    const tr=treinos.find(t=>String(t.id)===String(turma.treinamento_id||ev.treinamento_id))||treinos.find(t=>normal(t.nome)===normal(turma.treinamento||ev.treinamento));
-    const data=String(turma.data_fim||ev.data_fim||'').slice(0,10),venc=vencSomarMeses(data,tr?.validade_meses);
-    const hoje=new Date(),agora=[hoje.getFullYear(),String(hoje.getMonth()+1).padStart(2,'0'),String(hoje.getDate()).padStart(2,'0')].join('-');
-    const dias=venc?Math.round((Date.parse(venc)-Date.parse(agora))/86400000):null;
-    const situacao=dias===null?'Sem validade definida':dias<0?'Vencido':dias<=30?'Vence em até 30 dias':dias<=60?'Vence em até 60 dias':'Vigente';
-    const cliente=turma.empresa||ev.empresa||'Cliente não informado',nome=turma.treinamento||ev.treinamento||tr?.nome||'Treinamento';
-    const linhas=(pessoas.length?pessoas:[{nome:'Participantes não cadastrados'}]).map((p,i)=>'<tr><td>'+String(i+1).padStart(2,'0')+'</td><td>'+vencEsc(p.nome)+'</td><td>'+vencData(data)+'</td><td>'+vencData(venc)+'</td><td>'+vencEsc(situacao)+'</td></tr>').join('');
-    const html='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;color:#22332c;font-size:12px;margin:0;padding:0}main{padding:16mm 14mm}h1{font-size:20px;color:#1b503a;margin:0 0 10px}h2{font-size:15px;margin:16px 0 6px}.meta{padding:12px;background:#edf4ef;border-left:4px solid #3b7754}.meta div{margin:5px 0}table{width:100%;border-collapse:collapse;margin-top:14px;font-size:10px}th,td{padding:8px;border:1px solid #d4e0d8;text-align:left}th{background:#e2efe7}tr{break-inside:avoid}.nota{margin-top:16px;color:#66736b;font-size:10px}footer{margin-top:25px;border-top:1px solid #d4e0d8;padding-top:9px;font-size:10px}</style></head><body><main><h1>CONTROLE DE VENCIMENTOS DE TREINAMENTOS</h1><p>Relatório de acompanhamento para o cliente</p><div class="meta"><div><b>Cliente:</b> '+vencEsc(cliente)+'</div><div><b>Treinamento:</b> '+vencEsc(nome)+'</div><div><b>Norma:</b> '+vencEsc(tr?.norma||turma.norma||ev.norma||'Não informada')+'</div><div><b>Carga horária:</b> '+vencEsc(turma.carga_horaria||ev.carga_horaria||'Não informada')+' horas</div><div><b>Data de conclusão:</b> '+vencData(data)+'</div><div><b>Validade cadastrada:</b> '+(Number(tr?.validade_meses)>0?vencEsc(tr.validade_meses)+' meses':'Não definida')+'</div><div><b>Emissão:</b> '+vencData(agora)+'</div></div><h2>Relação de participantes e vencimentos</h2><table><thead><tr><th>Nº</th><th>Participante</th><th>Realização</th><th>Vencimento</th><th>Situação</th></tr></thead><tbody>'+linhas+'</tbody></table><p class="nota">As datas de vencimento são calculadas conforme o prazo cadastrado para este treinamento. A ausência de prazo cadastrado não significa dispensa de reciclagem. Confira exigências normativas e situações individuais antes de programar novos treinamentos.</p><footer>Total de participantes: '+pessoas.length+' | Documento gerado automaticamente para acompanhamento.</footer></main></body></html>';
-    const pasta=await raiz.getDirectoryHandle('05) Vencimento',{create:true});
-    const pdf=await htmlParaPdf(html,'portrait');
-    await gravar(pasta,'Controle de Vencimento - '+limparNome(nome)+'.pdf',pdf);
-  }
+  window.gerarControleVencimentosClienteGithub=async function(ev){
+    if(!ev?.empresa&&!ev?.empresa_id)throw Error('Cliente não identificado.');
+    if(!window.showDirectoryPicker)throw Error('Use Chrome ou Edge para selecionar a pasta.');
+    // O seletor precisa ser chamado diretamente pelo clique do usuário.
+    let raiz;try{raiz=await window.showDirectoryPicker({mode:'readwrite'});}catch(e){if(e?.name==='AbortError')return;throw e;}
+    const aviso=document.createElement('div');aviso.className='modal';aviso.innerHTML='<div class="modal-box"><h3>Controle de vencimentos</h3><p id="controleVencStatus">Consultando todos os treinamentos do cliente...</p></div>';document.body.appendChild(aviso);
+    try{
+      const c=window.SUPABASE_CONFIG||{},base=String(c.url||'').replace(/\/$/,'');
+      async function buscar(path){let todos=[];for(let offset=0;offset<10000;offset+=1000){const r=await fetch(base+'/rest/v1/'+path+(path.includes('?')?'&':'?')+'limit=1000&offset='+offset,{headers:{apikey:c.anonKey,Authorization:'Bearer '+c.anonKey,Accept:'application/json'}});if(!r.ok)throw Error(await r.text());const lote=await r.json();todos.push(...lote);if(lote.length<1000)break;}return todos;}
+      const [agendas,turmas,treinos]=await Promise.all([buscar('treinamento_agenda?select=id,id_turma,empresa,empresa_id,treinamento,treinamento_id,data_inicio,data_fim,status'),buscar('treinamento_turmas?select=id,agenda_id,empresa,treinamento,treinamento_id,norma,data_inicio,data_fim'),buscar('treinamento_treinamentos?select=id,nome,norma,validade_meses')]);
+      const norm=v=>String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      const minhas=agendas.filter(a=>String(a.status||'').toLowerCase()!=='cancelado'&&(ev.empresa_id&&a.empresa_id?String(a.empresa_id)===String(ev.empresa_id):norm(a.empresa)===norm(ev.empresa)));
+      const ids=new Set(minhas.map(a=>String(a.id))),tid=new Set(minhas.map(a=>String(a.id_turma||'')));
+      const relacionadas=turmas.filter(t=>ids.has(String(t.agenda_id))||tid.has(String(t.id)));
+      const dados=[];for(const t of relacionadas){const a=minhas.find(x=>String(x.id)===String(t.agenda_id)||String(x.id_turma)===String(t.id));if(!a)continue;const tr=treinos.find(x=>String(x.id)===String(t.treinamento_id||a.treinamento_id))||treinos.find(x=>norm(x.nome)===norm(t.treinamento||a.treinamento));const ps=await buscar('treinamento_turma_participantes?select=nome,cpf&turma_id=eq.'+encodeURIComponent(t.id));const data=String(t.data_fim||a.data_fim||'').slice(0,10),venc=vencSomarMeses(data,tr?.validade_meses);for(const pessoa of ps)dados.push({nome:pessoa.nome,cpf:pessoa.cpf||'',treinamento:t.treinamento||a.treinamento||tr?.nome||'',norma:tr?.norma||t.norma||'',data,venc,meses:tr?.validade_meses});}
+      const recentes=new Map();for(const d of dados){const chave=norm(d.treinamento)+'|'+(String(d.cpf).replace(/\D/g,'')||norm(d.nome));const atual=recentes.get(chave);if(!atual||d.data>atual.data)recentes.set(chave,d);}
+      const hoje=new Date(),hojeIso=[hoje.getFullYear(),String(hoje.getMonth()+1).padStart(2,'0'),String(hoje.getDate()).padStart(2,'0')].join('-');
+      const registros=[...recentes.values()].map(d=>{const dias=d.venc?Math.round((Date.parse(d.venc)-Date.parse(hojeIso))/86400000):null;return {...d,situacao:dias===null?'Validade não cadastrada':dias<0?'Vencido':dias<=30?'Até 30 dias':dias<=60?'Até 60 dias':'Vigente',ordem:dias===null?3:dias<0?0:dias<=60?1:2};}).sort((a,b)=>a.ordem-b.ordem||(a.venc||'9999').localeCompare(b.venc||'9999')||a.treinamento.localeCompare(b.treinamento));
+      const contar=s=>registros.filter(d=>d.situacao===s).length;
+      const linhas=registros.map(d=>'<tr><td>'+vencEsc(d.treinamento)+'</td><td>'+vencEsc(d.norma||'—')+'</td><td>'+vencEsc(d.nome)+'</td><td>'+vencData(d.data)+'</td><td>'+vencData(d.venc)+'</td><td>'+vencEsc(d.situacao)+'</td></tr>').join('');
+      const html='<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;color:#24332b;font-size:10px}main{padding:14mm}h1{font-size:20px;color:#205c42}.resumo{background:#edf5ef;padding:12px;margin:14px 0;line-height:1.9}table{width:100%;border-collapse:collapse;font-size:9px}th,td{border:1px solid #d7e0da;padding:6px;text-align:left}th{background:#e1efe5}tr{break-inside:avoid}p.nota{font-size:9px;color:#59665d;margin-top:16px}</style></head><body><main><h1>CONTROLE GERAL DE VENCIMENTOS</h1><p><b>Cliente:</b> '+vencEsc(ev.empresa)+'</p><p><b>Emissão:</b> '+vencData(hojeIso)+'</p><div class="resumo"><b>Participações vigentes:</b> '+contar('Vigente')+' &nbsp; | &nbsp; <b>Até 60 dias:</b> '+(contar('Até 30 dias')+contar('Até 60 dias'))+' &nbsp; | &nbsp; <b>Vencidas:</b> '+contar('Vencido')+' &nbsp; | &nbsp; <b>Sem validade:</b> '+contar('Validade não cadastrada')+'</div><table><thead><tr><th>Treinamento</th><th>NR</th><th>Participante</th><th>Realização</th><th>Vencimento</th><th>Situação</th></tr></thead><tbody>'+linhas+'</tbody></table><p class="nota">Datas calculadas a partir da conclusão e do prazo cadastrado no sistema. Confirmar requisitos normativos e particularidades antes de programar reciclagens. O relatório considera a realização mais recente por participante e treinamento.</p></main></body></html>';
+      aviso.querySelector('#controleVencStatus').textContent='Gerando PDF consolidado...';
+      const pasta=await raiz.getDirectoryHandle('05) Vencimento',{create:true});
+      await gravar(pasta,'Controle Geral de Vencimentos - '+limparNome(ev.empresa)+'.pdf',await htmlParaPdf(html,'portrait'));
+      aviso.remove();alert('Relatório consolidado salvo em 05) Vencimento. '+registros.length+' participação(ões).');
+    }catch(e){aviso.remove();throw e;}
+  };
   window.gerarTreinamentoLoteGithub=async function(ev,raiz,opcoes={},progresso=()=>{}){
     const gerarLista=opcoes.lista!==false,gerarCert=opcoes.certificados!==false;
     // O relatório de vencimentos acompanha toda geração de treinamento.
@@ -211,7 +217,6 @@
         if(window.registrarCertificadoGeradoGithub)await window.registrarCertificadoGeradoGithub(certs.turma,d.participante||{nome:d.nome,cpf:d.cpf});
       }
     }
-    await gerarRelatorioVencimento(ev,lista?.turma||certs?.turma,raiz,progresso);
   };
   window.arquivarTreinamentoGithub=async function(ev){
     if(!window.showDirectoryPicker)return alert('Seu navegador não permite selecionar pastas. Use Chrome ou Edge atualizado.');
@@ -238,7 +243,6 @@
         if(window.registrarCertificadoGeradoGithub)await window.registrarCertificadoGeradoGithub(certs.turma,d.participante||{nome:d.nome,cpf:d.cpf});
       }
       if(pastaIT12&&lista.htmlAtestadoIT12){atualizarStatus('Gerando atestado IT 12...');const pdfAtestado=await htmlParaPdf(lista.htmlAtestadoIT12,'portrait');await gravar(pastaIT12,'ATESTADO DE FORMAÇÃO DE BRIGADA DE INCÊNDIO.pdf',pdfAtestado);}
-      await gerarRelatorioVencimento(ev,lista.turma,raiz,atualizarStatus);
       aviso.remove();alert('Pasta atualizada com sucesso. Arquivos com o mesmo nome foram substituídos.');
     }catch(e){aviso.remove();alert('Erro ao gerar a pasta: '+e.message);}
   };
