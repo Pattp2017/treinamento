@@ -4,7 +4,28 @@
   let dataAtual=new Date(),eventos=[],treinamentos=[],empresas=[],instrutores=[],eventoEditando=null,filtroConsultor='',filtroCliente='';
   function cfg(){return window.SUPABASE_CONFIG||{};} function configurado(){return Boolean(cfg().url&&cfg().anonKey);}
   async function supabaseFetch(path,options={}){if(!configurado())throw new Error('Supabase ainda não configurado.');const base=cfg().url.replace(/\/$/,'');const resposta=await fetch(base+'/rest/v1/'+path,{...options,headers:{apikey:cfg().anonKey,Authorization:'Bearer '+cfg().anonKey,'Content-Type':'application/json',Accept:'application/json',...(options.headers||{})}});const texto=await resposta.text();if(!resposta.ok)throw new Error(texto||('HTTP '+resposta.status));return texto?JSON.parse(texto):null;}
-  async function carregarEventos(){eventos=await supabaseFetch('treinamento_agenda?select=*&order=data_inicio.asc,codigo.asc')||[];desenhar();}
+  function periodoDiasUteis(inicio,carga){
+    if(!inicio||!Number.isFinite(Number(carga))||Number(carga)<=0)return null;
+    const d=proximoDiaUtil(criarDataLocal(inicio)),primeiro=iso(d);
+    for(let i=1;i<Math.ceil(Number(carga)/HORAS_DIA);i++){d.setDate(d.getDate()+1);proximoDiaUtil(d);}
+    return {data_inicio:primeiro,data_fim:iso(d)};
+  }
+  async function carregarEventos(){
+    const registros=await supabaseFetch('treinamento_agenda?select=*&order=data_inicio.asc,codigo.asc')||[];
+    // Ajusta agendamentos atuais e futuros; preserva o histórico já encerrado.
+    const hoje=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    for(const ev of registros){
+      if(String(ev.status||'').toLowerCase()==='cancelado'||!ev.data_inicio||!ev.data_fim||ev.data_fim<hoje)continue;
+      const periodo=periodoDiasUteis(ev.data_inicio,ev.carga_horaria);
+      if(!periodo||(periodo.data_inicio===ev.data_inicio&&periodo.data_fim===ev.data_fim))continue;
+      const dados={...periodo,atualizado_em:new Date().toISOString()};
+      const filtroTurma=ev.id_turma?'id=eq.'+encodeURIComponent(ev.id_turma):'agenda_id=eq.'+encodeURIComponent(ev.id);
+      await supabaseFetch('treinamento_turmas?'+filtroTurma,{method:'PATCH',body:JSON.stringify(dados)});
+      await supabaseFetch('treinamento_agenda?'+filtroRegistroAgenda(ev),{method:'PATCH',body:JSON.stringify(dados)});
+      Object.assign(ev,dados);
+    }
+    eventos=registros;desenhar();
+  }
   async function carregarTreinamentos(){treinamentos=await supabaseFetch('treinamento_treinamentos?select=id,nome,apelido,norma,carga_horaria_padrao,validade_meses&ativo=eq.true&order=nome.asc')||[];}
   async function carregarCadastros(){empresas=await supabaseFetch('empresas?select=id,nome&ativo=eq.true&order=nome.asc')||[];const is=await supabaseFetch('treinamento_instrutores?select=id,pessoa_id,conselho,numero_registro,uf_registro,formacao,especialidade,habilitado_nr33,habilitado_nr35,habilitado_it12,cor_card&ativo=eq.true')||[];const ps=await supabaseFetch('treinamento_pessoas?select=id,nome&instrutor=eq.true&ativo=eq.true&order=nome.asc')||[];const nomes=new Map(ps.map(p=>[String(p.id),p.nome]));instrutores=is.map(i=>({...i,nome:nomes.get(String(i.pessoa_id))||''})).filter(i=>i.nome).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));}
   function preencherSelect(id,lista,texto){const s=document.getElementById(id);if(!s)return;s.innerHTML='<option value="">Selecione...</option>';lista.forEach(x=>{const o=document.createElement('option');o.value=x.id;o.textContent=x[texto];s.appendChild(o);});}
@@ -129,6 +150,6 @@
     if(window.__atalhoGeracaoLote)return;window.__atalhoGeracaoLote=true;
     document.addEventListener('keydown',e=>{if(!document.getElementById('gradeAgenda')||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;if((e.ctrlKey||e.metaKey)&&String(e.key).toLowerCase()==='g'){e.preventDefault();abrirGeracaoLote();}if((e.ctrlKey||e.metaKey)&&e.key==='Delete'){e.preventDefault();abrirExclusaoLote();}});
   }
-  window.addEventListener('feriadosAtualizados',()=>{desenhar();calcularDataFinal();});
+  window.addEventListener('feriadosAtualizados',async()=>{if(!document.getElementById('gradeAgenda'))return;try{await carregarEventos();calcularDataFinal();}catch(e){document.getElementById('avisoAgenda').textContent='Erro ao atualizar datas: '+e.message;}});
   window.renderAgendaGithub=async function(){configurarAtalhoGeracaoLote();const area=document.getElementById('conteudoPrincipal');area.innerHTML=htmlAgenda();document.getElementById('abrirExclusaoLote').onclick=abrirExclusaoLote;document.getElementById('mesAnterior').onclick=()=>{dataAtual.setMonth(dataAtual.getMonth()-1);desenhar();};document.getElementById('mesSeguinte').onclick=()=>{dataAtual.setMonth(dataAtual.getMonth()+1);desenhar();};document.getElementById('fecharAgenda').onclick=fecharModal;document.getElementById('salvarAgenda').onclick=salvar;document.getElementById('agData').onchange=calcularDataFinal;document.getElementById('agTreinamento').onchange=preencherDadosTreinamento;desenhar();if(!configurado())return;try{await Promise.all([carregarTreinamentos(),carregarCadastros(),window.FeriadosTreinamento.carregar()]);preencherSelect('agTreinamento',treinamentos,'nome');prepararBuscaEmpresas();atualizarInstrutores();preencherFiltrosAgenda();await carregarEventos();}catch(e){document.getElementById('avisoAgenda').textContent='Erro ao carregar dados: '+e.message;}};
 })();
