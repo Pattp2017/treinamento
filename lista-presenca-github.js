@@ -83,7 +83,7 @@ ${rodapeDocumento(identidade)}
         <div class="termo-dados"><div>Nome: ${esc(p.nome)}</div><div>CPF: ${esc(formatarCPF(p.cpf))}</div></div>
         <h2 class="termo-declaracao">Declaro que autorizo: <span aria-hidden="true">▱</span></h2>
         <div class="termo-clausula"><span>✓</span><p>O uso de minha imagem, de livre e espontânea vontade, em todo e qualquer material entre imagens de vídeo, fotos e documentos, para ser utilizada nas redes sociais e nas peças de comunicação da Empresa RG Certe.</p></div>
-        <div class="termo-clausula"><span>✓</span><p>O uso da minha imagem está limitado ao território nacional, de forma gratuita e pelo prazo indeterminado, a contar da data de assinatura deste Termo.</p></div>
+        <div class="termo-clausula"><span>✓</span><p>O uso da minha imagem está limitado ao território nacional, de forma gratuita e por prazo indeterminado.</p></div>
         <div class="termo-clausula"><span>✓</span><p>O uso acima descrito sem que nada tenha a reclamar com relação à autorização concedida neste Termo.</p></div>
         <div class="termo-assinatura"><span>(Assinatura)</span></div></div><div class="termo-rodape"></div>
       </section>`).join('')+'</div>');
