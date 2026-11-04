@@ -151,7 +151,7 @@
     const style=document.createElement('style');style.textContent=[...doc.querySelectorAll('style')].map(x=>x.textContent).join('\n');box.appendChild(style);
     const corpo=document.createElement('div');corpo.innerHTML=doc.body.innerHTML;corpo.style.margin='0';corpo.style.padding='0';if(orientacao==='landscape'){const pags=[...corpo.querySelectorAll('.pagina')];pags.forEach(p=>{p.style.pageBreakAfter='auto';p.style.breakAfter='auto';p.style.pageBreakBefore='auto';p.style.breakBefore='auto';});}box.appendChild(corpo);document.body.appendChild(box);
     await Promise.all([...box.querySelectorAll('img')].map(img=>img.complete?Promise.resolve():new Promise(r=>{img.onload=img.onerror=r;})));
-    try{const atestados=[...corpo.querySelectorAll('.atestado-it12')];if(orientacao==='portrait'&&atestados.length){const JsPDF=window.jspdf?.jsPDF||window.jsPDF;if(!JsPDF)throw new Error('jsPDF não carregado.');const renderCanvas=window.html2canvas;if(!renderCanvas)throw new Error('html2canvas não carregado.');const pdf=new JsPDF({unit:'mm',format:'a4',orientation:'portrait'});for(let i=0;i<atestados.length;i++){const pag=atestados[i];pag.style.width='210mm';pag.style.height='297mm';pag.style.minHeight='297mm';pag.style.maxHeight='297mm';pag.style.overflow='hidden';pag.style.pageBreakBefore='auto';pag.style.pageBreakAfter='auto';pag.style.breakBefore='auto';pag.style.breakAfter='auto';const canvas=await renderCanvas(pag,{scale:2,useCORS:true,backgroundColor:'#ffffff',width:pag.scrollWidth,height:pag.scrollHeight});if(i>0)pdf.addPage('a4','portrait');pdf.addImage(canvas.toDataURL('image/jpeg',.98),'JPEG',0,0,210,297);}return pdf.output('blob');}if(orientacao==='landscape'){const pags=[...corpo.querySelectorAll('.pagina')];const JsPDF=window.jspdf?.jsPDF||window.jsPDF;if(!JsPDF)throw new Error('jsPDF não carregado.');const pdf=new JsPDF({unit:'mm',format:'a4',orientation:'landscape'});for(let i=0;i<pags.length;i++){const renderCanvas=window.html2canvas;if(!renderCanvas)throw new Error('html2canvas não carregado.');const canvas=await renderCanvas(pags[i],{scale:2,useCORS:true,backgroundColor:'#ffffff',width:pags[i].scrollWidth,height:pags[i].scrollHeight});if(i>0)pdf.addPage('a4','landscape');pdf.addImage(canvas.toDataURL('image/jpeg',.98),'JPEG',0,0,297,210);}return pdf.output('blob');}return await html2pdf().set({margin:0,filename:'documento.pdf',image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:orientacao},pagebreak:{mode:['css']}}).from(corpo).outputPdf('blob');}
+    try{const atestados=[...corpo.querySelectorAll('.atestado-it12,.termo-imagem')];if(orientacao==='portrait'&&atestados.length){const JsPDF=window.jspdf?.jsPDF||window.jsPDF;if(!JsPDF)throw new Error('jsPDF não carregado.');const renderCanvas=window.html2canvas;if(!renderCanvas)throw new Error('html2canvas não carregado.');const pdf=new JsPDF({unit:'mm',format:'a4',orientation:'portrait'});for(let i=0;i<atestados.length;i++){const pag=atestados[i];pag.style.width='210mm';pag.style.height='297mm';pag.style.minHeight='297mm';pag.style.maxHeight='297mm';pag.style.overflow='hidden';pag.style.pageBreakBefore='auto';pag.style.pageBreakAfter='auto';pag.style.breakBefore='auto';pag.style.breakAfter='auto';const canvas=await renderCanvas(pag,{scale:2,useCORS:true,backgroundColor:'#ffffff',width:pag.scrollWidth,height:pag.scrollHeight});if(i>0)pdf.addPage('a4','portrait');pdf.addImage(canvas.toDataURL('image/jpeg',.98),'JPEG',0,0,210,297);}return pdf.output('blob');}if(orientacao==='landscape'){const pags=[...corpo.querySelectorAll('.pagina')];const JsPDF=window.jspdf?.jsPDF||window.jsPDF;if(!JsPDF)throw new Error('jsPDF não carregado.');const pdf=new JsPDF({unit:'mm',format:'a4',orientation:'landscape'});for(let i=0;i<pags.length;i++){const renderCanvas=window.html2canvas;if(!renderCanvas)throw new Error('html2canvas não carregado.');const canvas=await renderCanvas(pags[i],{scale:2,useCORS:true,backgroundColor:'#ffffff',width:pags[i].scrollWidth,height:pags[i].scrollHeight});if(i>0)pdf.addPage('a4','landscape');pdf.addImage(canvas.toDataURL('image/jpeg',.98),'JPEG',0,0,297,210);}return pdf.output('blob');}return await html2pdf().set({margin:0,filename:'documento.pdf',image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},jsPDF:{unit:'mm',format:'a4',orientation:orientacao},pagebreak:{mode:['css']}}).from(corpo).outputPdf('blob');}
     finally{box.remove();}
   }
 
@@ -242,6 +242,21 @@
       aviso.remove();if(!opcoes.silencioso)alert('Controle Geral de Vencimentos.pdf salvo em 03) Certificados. '+registros.length+' participação(ões).');
     }catch(e){aviso.remove();throw e;}
   };
+  async function salvarTermosImagem(dados,raiz){
+    const pasta=await raiz.getDirectoryHandle('01) Lista de Presença',{create:true});
+    await gravar(pasta,'Termos de Uso de Imagem - '+limparNome(dados.turma.treinamento||'Treinamento')+'.pdf',await htmlParaPdf(dados.htmlTermoImagem,'portrait'));
+  }
+  window.gerarTermosImagemLoteGithub=async function(itens,raiz){
+    const grupos=new Map();
+    for(const {ev,lista} of itens){if(!lista)continue;const chave=String(ev.empresa_id||ev.empresa||'Cliente');if(!grupos.has(chave))grupos.set(chave,[]);grupos.get(chave).push({ev,lista});}
+    for(const grupo of grupos.values()){
+      grupo.sort((a,b)=>b.lista.participantes.length-a.lista.participantes.length);
+      const base=grupo[0],vistos=new Set(),participantes=[];
+      for(const {lista} of grupo)for(const p of lista.participantes){const cpf=String(p.cpf||'').replace(/\D/g,''),chave=cpf||String(p.nome||'').trim().toLocaleLowerCase('pt-BR');if(vistos.has(chave))continue;vistos.add(chave);participantes.push(p);}
+      const destino=grupos.size>1?await raiz.getDirectoryHandle(limparNome(base.ev.empresa||'Cliente'),{create:true}):raiz;
+      await salvarTermosImagem({...base.lista,htmlTermoImagem:window.montarTermoImagemGithub(participantes)},destino);
+    }
+  };
   window.gerarTreinamentoLoteGithub=async function(ev,raiz,opcoes={},progresso=()=>{}){
     const gerarLista=opcoes.lista!==false,gerarCert=opcoes.certificados!==false;
     // Relatórios de vencimento são gerados uma vez por cliente ao concluir o lote.
@@ -262,6 +277,7 @@
         await gravar(pastaIT12,'ATESTADO DE FORMAÇÃO DE BRIGADA DE INCÊNDIO.pdf',pdfAtestado);
       }
     }
+    if(gerarLista&&opcoes.termoImagem!==false)await salvarTermosImagem(lista,raiz);
     if(gerarCert){
       const pastaCertRaiz=await raiz.getDirectoryHandle('03) Certificados',{create:true});
       const pastaCert=await pastaCertRaiz.getDirectoryHandle(limparNome(nomeTreinamento),{create:true});
@@ -273,6 +289,7 @@
         if(window.registrarCertificadoGeradoGithub)await window.registrarCertificadoGeradoGithub(certs.turma,d.participante||{nome:d.nome,cpf:d.cpf});
       }
     }
+    return lista;
   };
   window.arquivarTreinamentoGithub=async function(ev){
     if(!window.showDirectoryPicker)return alert('Seu navegador não permite selecionar pastas. Use Chrome ou Edge atualizado.');
@@ -291,6 +308,8 @@
       atualizarStatus('Gerando lista de presença...');
       const pdfLista=await htmlListaParaPdf(lista.html);
       await gravar(pastaLista,limparNome(lista.turma.treinamento||'Lista de Presença')+'.pdf',pdfLista);
+      atualizarStatus('Gerando termos de uso de imagem...');
+      await salvarTermosImagem(lista,raiz);
       let n=0;
       for(const d of certs.documentos){
         atualizarStatus('Gerando certificado '+(++n)+' de '+certs.documentos.length+'...');
