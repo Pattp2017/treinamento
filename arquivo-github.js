@@ -243,9 +243,15 @@
     }catch(e){aviso.remove();throw e;}
   };
   async function salvarTermosImagem(dados,raiz){
-    const pasta=await raiz.getDirectoryHandle('01) Lista de Presença',{create:true});
-    await gravar(pasta,'Termos de Uso de Imagem - '+limparNome(dados.turma.treinamento||'Treinamento')+'.pdf',await htmlParaPdf(dados.htmlTermoImagem,'portrait'));
+    const pasta=await raiz.getDirectoryHandle('Termos de Uso de Imagem',{create:true});
+    await gravar(pasta,'Termos de Uso de Imagem.pdf',await htmlParaPdf(dados.htmlTermoImagem,'portrait'));
   }
+  window.salvarTermoImagemGithub=async function(ev){
+    if(!window.showDirectoryPicker)return alert('Seu navegador não permite selecionar pastas. Use Chrome ou Edge atualizado.');
+    let raiz;try{raiz=await window.showDirectoryPicker({mode:'readwrite'});}catch(e){if(e?.name!=='AbortError')alert('Não foi possível abrir a pasta: '+e.message);return;}
+    const aviso=document.createElement('div');aviso.className='modal';aviso.innerHTML='<div class="modal-box"><h3>Termos de Uso de Imagem</h3><p>Gerando arquivo único com todos os participantes...</p></div>';document.body.appendChild(aviso);
+    try{const dados=await window.obterListaPresencaGithub(ev);await salvarTermosImagem(dados,raiz);alert('Arquivo salvo na pasta Termos de Uso de Imagem.');}catch(e){alert('Erro ao salvar termos de imagem: '+e.message);}finally{aviso.remove();}
+  };
   window.gerarTermosImagemLoteGithub=async function(itens,raiz){
     const grupos=new Map();
     for(const {ev,lista} of itens){if(!lista)continue;const chave=String(ev.empresa_id||ev.empresa||'Cliente');if(!grupos.has(chave))grupos.set(chave,[]);grupos.get(chave).push({ev,lista});}
